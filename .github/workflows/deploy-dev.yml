@@ -68,6 +68,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
+          key_path: ''
+          passphrase: ''
           script: |
             cd ${{ vars.FTP_REMOTE_DIR_DEV || '/var/www/html' }}
             composer install --no-dev --optimize-autoloader --no-interaction
