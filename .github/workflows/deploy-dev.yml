@@ -84,9 +84,21 @@ jobs:
             fi
             echo "=== Removing vendor directory for clean install ==="
             rm -rf vendor
+            echo "=== Clearing composer cache ==="
+            composer clear-cache || true
             echo "=== Running composer install (clean) ==="
             composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-            echo "=== Composer install completed ==="
+            if [ $? -ne 0 ]; then
+              echo "ERROR: Composer install failed!"
+              echo "Trying without --no-dev flag..."
+              composer install --optimize-autoloader --no-interaction --prefer-dist
+            fi
+            echo "=== Verifying composer install ==="
+            if [ ! -d vendor ]; then
+              echo "ERROR: vendor directory was not created!"
+              exit 1
+            fi
+            echo "=== Composer install completed successfully ==="
 
       - name: Install Node Dependencies and Build Assets
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
@@ -158,26 +170,50 @@ jobs:
             ls -la | head -20
             echo "=== Running Laravel setup commands ==="
             # Set proper permissions
-            chmod -R 755 storage bootstrap/cache
-            chown -R ${{ vars.SSH_USERNAME_DEV }}:www-data storage bootstrap/cache || chown -R ${{ vars.SSH_USERNAME_DEV }}:u361859791 storage bootstrap/cache || true
+            echo "=== Setting file permissions ==="
+            chmod -R 755 storage bootstrap/cache || echo "WARNING: chmod failed, continuing..."
+            # Try different chown approaches (some servers don't have www-data group)
+            echo "=== Setting ownership ==="
+            if command -v id &> /dev/null; then
+              CURRENT_USER=$(id -un)
+              CURRENT_GROUP=$(id -gn)
+              echo "Current user: $CURRENT_USER, group: $CURRENT_GROUP"
+              chown -R $CURRENT_USER:$CURRENT_GROUP storage bootstrap/cache 2>/dev/null || echo "WARNING: chown failed, continuing..."
+            else
+              echo "WARNING: Cannot determine user/group, skipping chown"
+            fi
+            
+            # Verify composer install before running artisan
+            echo "=== Verifying vendor directory ==="
+            if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
+              echo "ERROR: vendor/autoload.php not found! Composer install may have failed."
+              echo "Cannot run artisan commands without proper dependencies."
+              exit 1
+            fi
             
             # Create storage symlink if it doesn't exist
-            php artisan storage:link || true
+            echo "=== Creating storage symlink ==="
+            php artisan storage:link || echo "WARNING: storage:link failed or already exists"
             
             # Run database migrations (use --force for production)
-            php artisan migrate --force || echo "Migration skipped or failed"
+            echo "=== Running migrations ==="
+            php artisan migrate --force || echo "WARNING: Migration skipped or failed"
             
             # Clear and cache configuration
-            php artisan config:clear
-            php artisan cache:clear
-            php artisan route:clear
-            php artisan view:clear
+            echo "=== Clearing caches ==="
+            php artisan config:clear || echo "WARNING: config:clear failed"
+            php artisan cache:clear || echo "WARNING: cache:clear failed"
+            php artisan route:clear || echo "WARNING: route:clear failed"
+            php artisan view:clear || echo "WARNING: view:clear failed"
             
             # Optimize for production
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan optimize
+            echo "=== Optimizing Laravel ==="
+            php artisan config:cache || echo "WARNING: config:cache failed"
+            php artisan route:cache || echo "WARNING: route:cache failed"
+            php artisan view:cache || echo "WARNING: view:cache failed"
+            php artisan optimize || echo "WARNING: optimize failed"
+            
+            echo "=== Laravel setup completed ==="
 
       - name: Restart PHP-FPM (if needed)
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.RESTART_PHP_FPM_DEV == 'true' }}
