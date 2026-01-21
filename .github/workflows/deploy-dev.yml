@@ -47,3 +47,75 @@ jobs:
             **/.git*
             **/.DS_Store
 
+      - name: Install PHP Dependencies
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          script: |
+            cd ${{ vars.FTP_REMOTE_DIR_DEV || '/var/www/html' }}
+            composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Install Node Dependencies and Build Assets
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          script: |
+            cd ${{ vars.FTP_REMOTE_DIR_DEV || '/var/www/html' }}
+            npm ci --production
+            npm run build
+
+      - name: Run Laravel Setup Commands
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          script: |
+            cd ${{ vars.FTP_REMOTE_DIR_DEV || '/var/www/html' }}
+            
+            # Set proper permissions
+            chmod -R 755 storage bootstrap/cache
+            chown -R ${{ vars.SSH_USERNAME_DEV }}:www-data storage bootstrap/cache || true
+            
+            # Create storage symlink if it doesn't exist
+            php artisan storage:link || true
+            
+            # Run database migrations (use --force for production)
+            php artisan migrate --force || echo "Migration skipped or failed"
+            
+            # Clear and cache configuration
+            php artisan config:clear
+            php artisan cache:clear
+            php artisan route:clear
+            php artisan view:clear
+            
+            # Optimize for production
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan optimize
+
+      - name: Restart PHP-FPM (if needed)
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.RESTART_PHP_FPM_DEV == 'true' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          script: |
+            sudo systemctl restart php8.2-fpm || sudo systemctl restart php-fpm || echo "PHP-FPM restart skipped"
