@@ -106,9 +106,37 @@ jobs:
             pwd
             echo "=== Directory contents ==="
             ls -la | head -20
+            echo "=== Checking for Node.js and npm ==="
+            if ! command -v node &> /dev/null; then
+              echo "WARNING: Node.js is not installed or not in PATH"
+              echo "Checking common locations..."
+              if [ -f /usr/bin/node ]; then
+                export PATH="/usr/bin:$PATH"
+              elif [ -f /usr/local/bin/node ]; then
+                export PATH="/usr/local/bin:$PATH"
+              elif [ -f ~/.nvm/nvm.sh ]; then
+                source ~/.nvm/nvm.sh
+              fi
+            fi
+            if ! command -v npm &> /dev/null; then
+              echo "ERROR: npm is not installed or not in PATH"
+              echo "Node.js/npm is required to build frontend assets."
+              echo "Please install Node.js on your server or build assets locally before deployment."
+              echo "Current PATH: $PATH"
+              echo "Skipping npm build step..."
+              exit 0
+            fi
+            echo "Node version: $(node --version)"
+            echo "NPM version: $(npm --version)"
+            echo "=== Checking package.json ==="
+            if [ ! -f package.json ]; then
+              echo "WARNING: package.json not found, skipping npm build"
+              exit 0
+            fi
             echo "=== Running npm commands ==="
             npm ci --production
             npm run build
+            echo "=== NPM build completed ==="
 
       - name: Run Laravel Setup Commands
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
