@@ -69,7 +69,15 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
+            echo "=== Current directory before cd ==="
+            pwd
+            echo "=== Changing to FTP_REMOTE_DIR_DEV ==="
             cd ${{ vars.FTP_REMOTE_DIR_DEV }}
+            echo "=== Current directory after cd ==="
+            pwd
+            echo "=== Directory contents ==="
+            ls -la | head -20
+            echo "=== Running composer install ==="
             composer install --no-dev --optimize-autoloader --no-interaction
 
       - name: Install Node Dependencies and Build Assets
@@ -82,7 +90,15 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
+            echo "=== Current directory before cd ==="
+            pwd
+            echo "=== Changing to FTP_REMOTE_DIR_DEV ==="
             cd ${{ vars.FTP_REMOTE_DIR_DEV }}
+            echo "=== Current directory after cd ==="
+            pwd
+            echo "=== Directory contents ==="
+            ls -la | head -20
+            echo "=== Running npm commands ==="
             npm ci --production
             npm run build
 
@@ -96,7 +112,15 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
+            echo "=== Current directory before cd ==="
+            pwd
+            echo "=== Changing to FTP_REMOTE_DIR_DEV ==="
             cd ${{ vars.FTP_REMOTE_DIR_DEV }}
+            echo "=== Current directory after cd ==="
+            pwd
+            echo "=== Directory contents ==="
+            ls -la | head -20
+            echo "=== Running Laravel setup commands ==="
             # Set proper permissions
             chmod -R 755 storage bootstrap/cache
             chown -R ${{ vars.SSH_USERNAME_DEV }}:www-data storage bootstrap/cache || chown -R ${{ vars.SSH_USERNAME_DEV }}:u361859791 storage bootstrap/cache || true
