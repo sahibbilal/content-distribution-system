@@ -77,8 +77,16 @@ jobs:
             pwd
             echo "=== Directory contents ==="
             ls -la | head -20
-            echo "=== Running composer install ==="
-            composer install --no-dev --optimize-autoloader --no-interaction
+            echo "=== Checking composer.json ==="
+            if [ ! -f composer.json ]; then
+              echo "ERROR: composer.json not found!"
+              exit 1
+            fi
+            echo "=== Removing vendor directory for clean install ==="
+            rm -rf vendor
+            echo "=== Running composer install (clean) ==="
+            composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+            echo "=== Composer install completed ==="
 
       - name: Install Node Dependencies and Build Assets
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
