@@ -37,7 +37,7 @@ jobs:
           password: ${{ vars.FTP_PASSWORD_DEV }}
           protocol: ${{ vars.FTP_PROTOCOL_DEV || 'ftps' }}
           local-dir: ${{ vars.FTP_LOCAL_DIR_DEV || './' }}
-          server-dir: '/'
+          server-dir: ${{ vars.FTP_REMOTE_DIR_DEV || '/' }}
           state-name: .ftp-deploy-dev-state.json
           dangerous-clean-slate: false
           exclude: |
@@ -69,6 +69,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
+            cd ${{ vars.FTP_REMOTE_DIR_DEV }}
             composer install --no-dev --optimize-autoloader --no-interaction
 
       - name: Install Node Dependencies and Build Assets
@@ -81,6 +82,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
+            cd ${{ vars.FTP_REMOTE_DIR_DEV }}
             npm ci --production
             npm run build
 
@@ -94,6 +96,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
+            cd ${{ vars.FTP_REMOTE_DIR_DEV }}
             # Set proper permissions
             chmod -R 755 storage bootstrap/cache
             chown -R ${{ vars.SSH_USERNAME_DEV }}:www-data storage bootstrap/cache || chown -R ${{ vars.SSH_USERNAME_DEV }}:u361859791 storage bootstrap/cache || true
