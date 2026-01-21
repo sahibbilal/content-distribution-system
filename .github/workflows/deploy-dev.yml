@@ -171,14 +171,23 @@ jobs:
             echo "=== Running Laravel setup commands ==="
             # Set proper permissions
             echo "=== Setting file permissions ==="
-            chmod -R 755 storage bootstrap/cache || echo "WARNING: chmod failed, continuing..."
+            # Set directory permissions (755 for directories, 644 for files)
+            find . -type d -exec chmod 755 {} \; || echo "WARNING: chmod directories failed"
+            find . -type f -exec chmod 644 {} \; || echo "WARNING: chmod files failed"
+            # Special permissions for storage and cache
+            chmod -R 775 storage bootstrap/cache || echo "WARNING: chmod storage/cache failed"
+            # Make sure public directory is accessible
+            chmod -R 755 public || echo "WARNING: chmod public failed"
             # Try different chown approaches (some servers don't have www-data group)
             echo "=== Setting ownership ==="
             if command -v id &> /dev/null; then
               CURRENT_USER=$(id -un)
               CURRENT_GROUP=$(id -gn)
               echo "Current user: $CURRENT_USER, group: $CURRENT_GROUP"
-              chown -R $CURRENT_USER:$CURRENT_GROUP storage bootstrap/cache 2>/dev/null || echo "WARNING: chown failed, continuing..."
+              # Set ownership for storage and cache (needs write access)
+              chown -R $CURRENT_USER:$CURRENT_GROUP storage bootstrap/cache 2>/dev/null || echo "WARNING: chown storage/cache failed"
+              # Set ownership for public directory
+              chown -R $CURRENT_USER:$CURRENT_GROUP public 2>/dev/null || echo "WARNING: chown public failed"
             else
               echo "WARNING: Cannot determine user/group, skipping chown"
             fi
@@ -193,7 +202,17 @@ jobs:
             
             # Create storage symlink if it doesn't exist
             echo "=== Creating storage symlink ==="
-            php artisan storage:link || echo "WARNING: storage:link failed or already exists"
+            if [ ! -L public/storage ]; then
+              php artisan storage:link || echo "WARNING: storage:link failed"
+            else
+              echo "Storage symlink already exists"
+            fi
+            # Verify symlink
+            if [ -L public/storage ]; then
+              echo "Storage symlink verified: $(readlink public/storage)"
+            else
+              echo "WARNING: Storage symlink not found!"
+            fi
             
             # Run database migrations (use --force for production)
             echo "=== Running migrations ==="
@@ -212,6 +231,29 @@ jobs:
             php artisan route:cache || echo "WARNING: route:cache failed"
             php artisan view:cache || echo "WARNING: view:cache failed"
             php artisan optimize || echo "WARNING: optimize failed"
+            
+            echo "=== Verifying deployment ==="
+            # Check if public/index.php exists
+            if [ ! -f public/index.php ]; then
+              echo "ERROR: public/index.php not found!"
+              exit 1
+            fi
+            # Check if .htaccess exists in public
+            if [ ! -f public/.htaccess ]; then
+              echo "WARNING: public/.htaccess not found! This may cause 403 errors."
+            else
+              echo "public/.htaccess found"
+            fi
+            # Check if .env exists
+            if [ ! -f .env ]; then
+              echo "WARNING: .env file not found! Make sure it's deployed or created."
+            fi
+            # List public directory to verify files
+            echo "=== Public directory contents ==="
+            ls -la public/ | head -10
+            # Check permissions on public/index.php
+            echo "=== Checking public/index.php permissions ==="
+            ls -la public/index.php
             
             echo "=== Laravel setup completed ==="
 
