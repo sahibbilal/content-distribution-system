@@ -65,7 +65,7 @@ jobs:
         with:
           host: ${{ vars.SSH_HOST_DEV }}
           username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          key: ${{ vars.SSH_PRIVATE_KEY_DEV }}
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           key_path: ''
@@ -80,7 +80,7 @@ jobs:
         with:
           host: ${{ vars.SSH_HOST_DEV }}
           username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          key: ${{ vars.SSH_PRIVATE_KEY_DEV }}
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
@@ -94,7 +94,7 @@ jobs:
         with:
           host: ${{ vars.SSH_HOST_DEV }}
           username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          key: ${{ vars.SSH_PRIVATE_KEY_DEV }}
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
@@ -128,7 +128,7 @@ jobs:
         with:
           host: ${{ vars.SSH_HOST_DEV }}
           username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          key: ${{ vars.SSH_PRIVATE_KEY_DEV }}
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
