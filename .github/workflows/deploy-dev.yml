@@ -37,7 +37,7 @@ jobs:
           password: ${{ vars.FTP_PASSWORD_DEV }}
           protocol: ${{ vars.FTP_PROTOCOL_DEV || 'ftps' }}
           local-dir: ${{ vars.FTP_LOCAL_DIR_DEV || './' }}
-          server-dir: ${{ vars.FTP_REMOTE_DIR_DEV || '/' }}
+          server-dir: '/'
           state-name: .ftp-deploy-dev-state.json
           dangerous-clean-slate: false
           exclude: |
@@ -69,16 +69,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            cd ${{ vars.FTP_REMOTE_DIR_DEV || '/var/www/html' }}
-            pwd
-            ls -la
-            if [ -f composer.json ]; then
-              composer install --no-dev --optimize-autoloader --no-interaction
-            else
-              echo "ERROR: composer.json not found in $(pwd)"
-              echo "Please check FTP_REMOTE_DIR_DEV variable - it should point to your project root"
-              exit 1
-            fi
+            composer install --no-dev --optimize-autoloader --no-interaction
 
       - name: Install Node Dependencies and Build Assets
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
@@ -90,16 +81,8 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            cd ${{ vars.FTP_REMOTE_DIR_DEV || '/var/www/html' }}
-            pwd
-            if [ -f package.json ]; then
-              npm ci --production
-              npm run build
-            else
-              echo "ERROR: package.json not found in $(pwd)"
-              echo "Please check FTP_REMOTE_DIR_DEV variable"
-              exit 1
-            fi
+            npm ci --production
+            npm run build
 
       - name: Run Laravel Setup Commands
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
@@ -111,14 +94,6 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            cd ${{ vars.FTP_REMOTE_DIR_DEV || '/var/www/html' }}
-            pwd
-            if [ ! -f artisan ]; then
-              echo "ERROR: artisan file not found in $(pwd)"
-              echo "Please check FTP_REMOTE_DIR_DEV variable - it should point to your Laravel project root"
-              exit 1
-            fi
-            
             # Set proper permissions
             chmod -R 755 storage bootstrap/cache
             chown -R ${{ vars.SSH_USERNAME_DEV }}:www-data storage bootstrap/cache || chown -R ${{ vars.SSH_USERNAME_DEV }}:u361859791 storage bootstrap/cache || true
