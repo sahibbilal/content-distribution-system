@@ -39,13 +39,25 @@ jobs:
           local-dir: ${{ vars.FTP_LOCAL_DIR_DEV || './' }}
           server-dir: ${{ vars.FTP_REMOTE_DIR_DEV || '/' }}
           state-name: .ftp-deploy-dev-state.json
-          dangerous-clean-slate: true
+          dangerous-clean-slate: false
           exclude: |
             .git/**
             .github/**
             node_modules/**
+            vendor/**
+            storage/logs/**
+            storage/framework/cache/**
+            storage/framework/sessions/**
+            storage/framework/views/**
+            .env
+            .env.backup
+            .env.production
             **/.git*
             **/.DS_Store
+            **/Thumbs.db
+            .ftp-deploy-dev-state.json
+          dry-run: false
+          log-level: verbose
 
       - name: Install PHP Dependencies
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
