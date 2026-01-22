@@ -39,6 +39,7 @@ jobs:
           cd ../ && pwd && ls -la | head -10
           echo "=== Full absolute path ==="
           echo "$(pwd)"
+          ls -la
           cd ../ && pwd && ls -la | head -10
           cd ../ && pwd && ls -la | head -10
           cd ../ && pwd && ls -la | head -10
@@ -79,6 +80,115 @@ jobs:
           echo ""
           echo "=== Final pwd after going back 6 steps ==="
           pwd
+
+      - name: Get Complete Server Path Information
+        if: ${{ vars.FTP_SERVER_DEV && vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          script: |
+            echo "=== Getting Complete Server Path Information ==="
+            echo ""
+            echo "=== 1. Home Directory ==="
+            echo "HOME: $HOME"
+            echo "Full path: $(readlink -f ~ || echo $HOME)"
+            echo ""
+            echo "=== 2. Current Working Directory (where SSH connected) ==="
+            echo "PWD: $(pwd)"
+            echo "Full absolute path: $(readlink -f . || pwd)"
+            echo ""
+            echo "=== 3. User Information ==="
+            echo "User: $(whoami)"
+            echo "User ID: $(id -u)"
+            echo "Group ID: $(id -g)"
+            echo ""
+            echo "=== 4. FTP_REMOTE_DIR_DEV Variable ==="
+            REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
+            echo "FTP_REMOTE_DIR_DEV: $REMOTE_DIR"
+            echo ""
+            echo "=== 5. Resolving FTP_REMOTE_DIR_DEV to Absolute Path ==="
+            if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
+              ABSOLUTE_REMOTE_DIR="$(pwd)"
+              echo "Relative path './' resolved to: $ABSOLUTE_REMOTE_DIR"
+            elif [ "$REMOTE_DIR" = "/" ]; then
+              ABSOLUTE_REMOTE_DIR="/"
+              echo "Root directory: $ABSOLUTE_REMOTE_DIR"
+            elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
+              ABSOLUTE_REMOTE_DIR="$REMOTE_DIR"
+              echo "Already absolute path: $ABSOLUTE_REMOTE_DIR"
+            else
+              ABSOLUTE_REMOTE_DIR="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
+              echo "Resolved relative path: $ABSOLUTE_REMOTE_DIR"
+            fi
+            echo ""
+            echo "=== 6. Navigating to FTP_REMOTE_DIR_DEV ==="
+            if [ -d "$REMOTE_DIR" ]; then
+              cd "$REMOTE_DIR" || {
+                echo "WARNING: Could not cd to $REMOTE_DIR, trying to create it..."
+                mkdir -p "$REMOTE_DIR" && cd "$REMOTE_DIR" || {
+                  echo "ERROR: Failed to create or access directory: $REMOTE_DIR"
+                  exit 1
+                }
+              }
+              echo "Successfully changed to: $REMOTE_DIR"
+            else
+              echo "Directory does not exist: $REMOTE_DIR"
+              echo "Will be created during FTP deployment"
+            fi
+            echo ""
+            echo "=== 7. Complete Absolute Path After Navigation ==="
+            CURRENT_PWD="$(pwd)"
+            echo "Current directory (pwd): $CURRENT_PWD"
+            echo "Real path (readlink -f): $(readlink -f . 2>/dev/null || echo $CURRENT_PWD)"
+            echo ""
+            echo "=== 8. Path Components Breakdown ==="
+            IFS='/' read -ra ADDR <<< "$CURRENT_PWD"
+            echo "Path components:"
+            for i in "${!ADDR[@]}"; do
+              if [ -n "${ADDR[$i]}" ]; then
+                LEVEL_PATH="/"
+                for ((j=0; j<=i; j++)); do
+                  if [ -n "${ADDR[$j]}" ]; then
+                    LEVEL_PATH="${LEVEL_PATH}${ADDR[$j]}/"
+                  fi
+                done
+                echo "  Level $((i+1)): $LEVEL_PATH"
+              fi
+            done
+            echo ""
+            echo "=== 9. Directory Tree from Root (showing path to current location) ==="
+            echo "Showing path from / to current directory:"
+            PATH_TO_SHOW="$CURRENT_PWD"
+            if [ "$PATH_TO_SHOW" != "/" ]; then
+              echo "/"
+              CURRENT_PATH="/"
+              IFS='/' read -ra PARTS <<< "${PATH_TO_SHOW#/}"
+              for part in "${PARTS[@]}"; do
+                if [ -n "$part" ]; then
+                  CURRENT_PATH="${CURRENT_PATH}${part}/"
+                  if [ -d "$CURRENT_PATH" ]; then
+                    echo "  └── $part/ ($CURRENT_PATH)"
+                  else
+                    echo "  └── $part/ (DOES NOT EXIST: $CURRENT_PATH)"
+                  fi
+                fi
+              done
+            else
+              echo "/ (root)"
+            fi
+            echo ""
+            echo "=== 10. Directory Contents at Current Location ==="
+            ls -la
+            echo ""
+            echo "=== 11. Final Complete Path Summary ==="
+            echo "FTP_REMOTE_DIR_DEV variable: $REMOTE_DIR"
+            echo "Resolved absolute path: $CURRENT_PWD"
+            echo "Full canonical path: $(readlink -f . 2>/dev/null || echo $CURRENT_PWD)"
+            echo "This is where FTP will deploy files to"
 
       - name: Deploy via FTP (Dev)
         if: ${{ vars.FTP_SERVER_DEV }}
