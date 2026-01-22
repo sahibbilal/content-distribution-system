@@ -51,6 +51,28 @@ jobs:
           echo "✓ composer.json found successfully"
           echo "=== composer.json location: $(pwd)/composer.json ==="
           echo "=== FTP will deploy from current directory: $(pwd) ==="
+          echo ""
+          echo "=== Navigating back 5-6 steps to previous folders ==="
+          echo "=== Step 1: Going up 1 level ==="
+          cd .. && pwd && ls -la | head -10
+          echo ""
+          echo "=== Step 2: Going up 2 levels ==="
+          cd .. && pwd && ls -la | head -10
+          echo ""
+          echo "=== Step 3: Going up 3 levels ==="
+          cd .. && pwd && ls -la | head -10
+          echo ""
+          echo "=== Step 4: Going up 4 levels ==="
+          cd .. && pwd && ls -la | head -10
+          echo ""
+          echo "=== Step 5: Going up 5 levels ==="
+          cd .. && pwd && ls -la | head -10
+          echo ""
+          echo "=== Step 6: Going up 6 levels ==="
+          cd .. && pwd && ls -la | head -10
+          echo ""
+          echo "=== Final pwd after going back 6 steps ==="
+          pwd
 
       - name: Deploy via FTP (Dev)
         if: ${{ vars.FTP_SERVER_DEV }}
