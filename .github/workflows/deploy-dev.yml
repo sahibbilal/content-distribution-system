@@ -21,6 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          path: ${{ vars.CHECKOUT_PATH || '' }}
 
       # Add build steps here if needed (e.g., npm ci && npm run build)
       # - name: Build
@@ -32,21 +33,92 @@ jobs:
         if: ${{ vars.FTP_SERVER_DEV }}
         run: |
           echo "=== Checking local directory before FTP deployment ==="
+          echo "=== GitHub Actions Workspace (default checkout location) ==="
+          echo "Workspace: ${{ github.workspace }}"
           echo "=== Current working directory ==="
           pwd
-          echo "=== Listing current directory contents ==="
-          ls -la
-          echo "=== Checking for composer.json ==="
-          if [ ! -f composer.json ]; then
-            echo "ERROR: composer.json not found in current directory!"
-            echo "Current directory: $(pwd)"
+          echo "=== FTP_LOCAL_DIR_DEV variable ==="
+          LOCAL_DIR="${{ vars.FTP_LOCAL_DIR_DEV || './' }}"
+          echo "FTP_LOCAL_DIR_DEV: $LOCAL_DIR"
+          echo "=== Resolving actual deployment source directory ==="
+          if [ "$LOCAL_DIR" = "./" ] || [ "$LOCAL_DIR" = "." ]; then
+            DEPLOY_DIR="$(pwd)"
+          else
+            DEPLOY_DIR="$LOCAL_DIR"
+            if [ ! -d "$DEPLOY_DIR" ]; then
+              echo "ERROR: FTP_LOCAL_DIR_DEV directory does not exist: $DEPLOY_DIR"
+              exit 1
+            fi
+          fi
+          echo "=== Deployment source directory: $DEPLOY_DIR ==="
+          echo "=== Listing deployment source directory contents ==="
+          ls -la "$DEPLOY_DIR"
+          echo "=== Checking for composer.json in deployment source ==="
+          if [ ! -f "$DEPLOY_DIR/composer.json" ]; then
+            echo "ERROR: composer.json not found in deployment source directory!"
+            echo "Deployment source: $DEPLOY_DIR"
             echo "Directory contents:"
-            ls -la
+            ls -la "$DEPLOY_DIR"
             exit 1
           fi
           echo "✓ composer.json found successfully"
-          echo "=== composer.json location: $(pwd)/composer.json ==="
-          echo "=== FTP will deploy from: $(pwd) ==="
+          echo "=== composer.json location: $DEPLOY_DIR/composer.json ==="
+          echo "=== FTP will deploy from: $DEPLOY_DIR ==="
+
+      - name: Check Remote Directory Location Before FTP Deploy
+        if: ${{ vars.FTP_SERVER_DEV && vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          script: |
+            echo "=== Checking remote directory location before FTP deployment ==="
+            echo "=== FTP_REMOTE_DIR_DEV variable ==="
+            REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
+            echo "FTP_REMOTE_DIR_DEV: $REMOTE_DIR"
+            echo "=== Current directory before cd ==="
+            pwd
+            echo "=== Changing to FTP_REMOTE_DIR_DEV ==="
+            cd "$REMOTE_DIR" || {
+              echo "ERROR: Failed to change to directory: $REMOTE_DIR"
+              echo "Trying to create directory if it doesn't exist..."
+              mkdir -p "$REMOTE_DIR" || {
+                echo "ERROR: Could not create directory: $REMOTE_DIR"
+                exit 1
+              }
+              cd "$REMOTE_DIR" || {
+                echo "ERROR: Still failed to change to directory: $REMOTE_DIR"
+                exit 1
+              }
+            }
+            echo "=== Current directory after cd (pwd) ==="
+            pwd
+            echo "=== Full absolute path ==="
+            echo "$(pwd)"
+            echo "=== Directory contents ==="
+            ls -la
+            echo "=== Checking if composer.json exists in remote directory ==="
+            if [ -f composer.json ]; then
+              echo "✓ composer.json already exists in remote directory"
+            else
+              echo "ℹ composer.json not found (will be deployed via FTP)"
+            fi
+
+      - name: Normalize FTP Remote Directory Path
+        if: ${{ vars.FTP_SERVER_DEV }}
+        id: normalize-ftp-dir
+        run: |
+          REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
+          # Ensure path ends with /
+          if [[ ! "$REMOTE_DIR" =~ /$ ]]; then
+            REMOTE_DIR="${REMOTE_DIR}/"
+          fi
+          echo "normalized_dir=${REMOTE_DIR}" >> $GITHUB_OUTPUT
+          echo "FTP_REMOTE_DIR_DEV: ${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
+          echo "Normalized to: ${REMOTE_DIR}"
 
       - name: Deploy via FTP (Dev)
         if: ${{ vars.FTP_SERVER_DEV }}
@@ -57,7 +129,7 @@ jobs:
           password: ${{ vars.FTP_PASSWORD_DEV }}
           protocol: ${{ vars.FTP_PROTOCOL_DEV || 'ftps' }}
           local-dir: ${{ vars.FTP_LOCAL_DIR_DEV || './' }}
-          server-dir: ${{ '/' }}
+          server-dir: ${{ steps.normalize-ftp-dir.outputs.normalized_dir }}
           state-name: .ftp-deploy-dev-state.json
           dangerous-clean-slate: false
           exclude: |
