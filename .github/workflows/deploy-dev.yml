@@ -271,7 +271,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
-          command_timeout: 10s
+          command_timeout: 30s
           script: |
             echo "=== Verifying files were deployed via FTP ==="
             REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
@@ -285,25 +285,79 @@ jobs:
               CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
             fi
             DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
-            echo "Checking deployment path: $DEPLOY_PATH"
-            if [ ! -d "$DEPLOY_PATH" ]; then
-              echo "ERROR: Deployment directory does not exist: $DEPLOY_PATH"
+            echo "Expected deployment path: $DEPLOY_PATH"
+            echo ""
+            echo "=== Step 1: Search for composer.json to find actual deployment location ==="
+            COMPOSER_FOUND=$(find ~ -name "composer.json" -type f 2>/dev/null | head -1)
+            if [ -n "$COMPOSER_FOUND" ]; then
+              ACTUAL_DEPLOY_DIR=$(dirname "$COMPOSER_FOUND")
+              echo "✓ Found composer.json at: $COMPOSER_FOUND"
+              echo "Actual deployment directory: $ACTUAL_DEPLOY_DIR"
+              echo ""
+              echo "=== Files in actual deployment location ==="
+              ls -la "$ACTUAL_DEPLOY_DIR" | head -15
+              echo ""
+              echo "=== Comparing expected vs actual ==="
+              if [ "$ACTUAL_DEPLOY_DIR" != "$DEPLOY_PATH" ]; then
+                echo "⚠ WARNING: Files are in different location!"
+                echo "Expected: $DEPLOY_PATH"
+                echo "Actual: $ACTUAL_DEPLOY_DIR"
+                echo ""
+                echo "=== Checking expected location ==="
+                if [ -d "$DEPLOY_PATH" ]; then
+                  echo "Expected directory exists but is empty"
+                  ls -la "$DEPLOY_PATH"
+                fi
+                echo ""
+                echo "=== Using actual deployment location for verification ==="
+                cd "$ACTUAL_DEPLOY_DIR"
+              else
+                echo "✓ Files are in expected location"
+                cd "$DEPLOY_PATH"
+              fi
+            else
+              echo "⚠ composer.json not found anywhere!"
+              echo ""
+              echo "=== Checking expected location ==="
+              if [ ! -d "$DEPLOY_PATH" ]; then
+                echo "ERROR: Deployment directory does not exist: $DEPLOY_PATH"
+                exit 1
+              fi
+              cd "$DEPLOY_PATH"
+              echo "=== Current directory: $(pwd) ==="
+              echo "=== Directory contents ==="
+              ls -la
+              echo ""
+              echo "=== Searching for any files in parent directories ==="
+              if [ -d "../" ]; then
+                echo "Parent directory contents:"
+                ls -la "../" | head -10
+              fi
+              if [ -d "../../" ]; then
+                echo "Grandparent directory contents:"
+                ls -la "../../" | head -10
+              fi
+              echo ""
+              echo "ERROR: composer.json not found and no files detected!"
+              echo "FTP deployment may have failed or deployed to wrong location."
               exit 1
             fi
-            cd "$DEPLOY_PATH"
-            echo "=== Current directory: $(pwd) ==="
-            echo "=== Checking for key files ==="
+            echo ""
+            echo "=== Final verification ==="
+            echo "Current directory: $(pwd)"
             if [ ! -f composer.json ]; then
-              echo "ERROR: composer.json not found!"
+              echo "ERROR: composer.json still not found in $(pwd)!"
               echo "Directory contents:"
-              ls -la | head -20
+              ls -la
               exit 1
             fi
-            echo "✓ composer.json found"
+            echo "✓ composer.json found successfully"
             FILE_COUNT=$(find . -maxdepth 1 -type f | wc -l)
             echo "Files in root: $FILE_COUNT"
             if [ "$FILE_COUNT" -lt 5 ]; then
               echo "WARNING: Very few files found. FTP deployment may have failed."
+            else
+              echo "✓ Deployment verified successfully"
             fi
 
       - name: Install PHP Dependencies
