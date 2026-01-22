@@ -81,6 +81,7 @@ jobs:
 
       - name: Deploy via FTP (Dev)
         if: ${{ vars.FTP_SERVER_DEV }}
+        id: ftp-deploy
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ vars.FTP_SERVER_DEV }}
@@ -88,7 +89,7 @@ jobs:
           password: ${{ vars.FTP_PASSWORD_DEV }}
           protocol: ${{ vars.FTP_PROTOCOL_DEV || 'ftps' }}
           local-dir: ${{ vars.FTP_LOCAL_DIR_DEV || './' }}
-          server-dir: /home/u361859791/public_html/cds/
+          server-dir: public_html/cds/
           state-name: .ftp-deploy-dev-state.json
           dangerous-clean-slate: false
           exclude: |
@@ -109,6 +110,7 @@ jobs:
             .ftp-deploy-dev-state.json
           dry-run: false
           log-level: verbose
+        continue-on-error: false
 
       - name: Check FTP Deployment Location
         if: ${{ vars.FTP_SERVER_DEV && vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
@@ -119,9 +121,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
-          command_timeout: 10s
+          command_timeout: 30s
           script: |
-            echo "=== Checking where FTP deployed files ==="
+            echo "=== Comprehensive search for deployed files ==="
             REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
             if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
               CURRENT_PWD="$(pwd)"
@@ -134,33 +136,46 @@ jobs:
             fi
             EXPECTED_PATH="${CURRENT_PWD}/public_html/cds"
             echo "Expected path: $EXPECTED_PATH"
+            echo "Current directory: $(pwd)"
             echo ""
-            echo "=== Checking expected location ==="
+            echo "=== Searching for composer.json in common locations ==="
+            # Search for composer.json starting from home directory
+            find ~ -name "composer.json" -type f 2>/dev/null | head -10
+            echo ""
+            echo "=== Searching for composer.json in public_html directories ==="
+            find ~/public_html -name "composer.json" -type f 2>/dev/null | head -10
+            find /home -name "composer.json" -path "*/public_html/*" -type f 2>/dev/null | head -10
+            echo ""
+            echo "=== Checking expected location: $EXPECTED_PATH ==="
             if [ -d "$EXPECTED_PATH" ]; then
-              echo "Directory exists: $EXPECTED_PATH"
-              FILE_COUNT=$(find "$EXPECTED_PATH" -maxdepth 1 -type f | wc -l)
-              echo "Files in directory: $FILE_COUNT"
-              if [ "$FILE_COUNT" -gt 0 ]; then
-                echo "✓ Files found in expected location"
-                ls -la "$EXPECTED_PATH" | head -10
+              echo "Directory exists"
+              FILE_COUNT=$(find "$EXPECTED_PATH" -maxdepth 1 -type f 2>/dev/null | wc -l)
+              DIR_COUNT=$(find "$EXPECTED_PATH" -maxdepth 1 -type d 2>/dev/null | wc -l)
+              echo "Files: $FILE_COUNT, Directories: $DIR_COUNT"
+              if [ "$FILE_COUNT" -gt 0 ] || [ "$DIR_COUNT" -gt 2 ]; then
+                echo "✓ Content found!"
+                ls -la "$EXPECTED_PATH"
               else
-                echo "⚠ Directory exists but is empty"
+                echo "⚠ Directory is empty"
               fi
             else
-              echo "⚠ Expected directory does not exist: $EXPECTED_PATH"
+              echo "⚠ Directory does not exist"
             fi
             echo ""
-            echo "=== Checking alternative locations ==="
-            # Check if files are in public_html/cds relative to current directory
-            if [ -d "public_html/cds" ]; then
-              echo "Found: public_html/cds (relative)"
-              ls -la "public_html/cds" | head -5
+            echo "=== Checking if files are in parent directories ==="
+            # Check public_html root
+            if [ -d "${CURRENT_PWD}/public_html" ]; then
+              echo "Checking ${CURRENT_PWD}/public_html:"
+              ls -la "${CURRENT_PWD}/public_html" | head -10
             fi
-            # Check if files are in /public_html/cds
-            if [ -d "/public_html/cds" ]; then
-              echo "Found: /public_html/cds"
-              ls -la "/public_html/cds" | head -5
+            # Check home directory
+            if [ -d "$HOME" ]; then
+              echo "Checking $HOME:"
+              ls -la "$HOME" | head -10
             fi
+            echo ""
+            echo "=== Recent files modified in last 10 minutes ==="
+            find ~ -type f -mmin -10 2>/dev/null | head -20
 
       - name: Verify Files Deployed via FTP
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
