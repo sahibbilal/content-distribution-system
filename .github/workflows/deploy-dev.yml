@@ -28,57 +28,6 @@ jobs:
       #     npm ci
       #     npm run build
 
-      - name: Get Complete Server Path Information
-        if: ${{ vars.FTP_SERVER_DEV && vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ vars.SSH_HOST_DEV }}
-          username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          password: ${{ secrets.SSH_PASSWORD_DEV }}
-          port: ${{ vars.SSH_PORT_DEV || 22 }}
-          command_timeout: 30s
-          script: |
-            set -e
-            echo "=== Getting Complete Server Path Information ==="
-            echo "=== Current Working Directory ==="
-            INITIAL_PWD="$(pwd)"
-            echo "PWD: $INITIAL_PWD"
-            echo ""
-            echo "=== FTP_REMOTE_DIR_DEV Variable ==="
-            REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
-            echo "FTP_REMOTE_DIR_DEV: $REMOTE_DIR"
-            echo ""
-            echo "=== Resolving FTP_REMOTE_DIR_DEV to Absolute Path ==="
-            if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
-              CURRENT_PWD="$INITIAL_PWD"
-            elif [ "$REMOTE_DIR" = "/" ]; then
-              CURRENT_PWD="/"
-            elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
-              CURRENT_PWD="$REMOTE_DIR"
-            else
-              CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$INITIAL_PWD/$REMOTE_DIR")"
-            fi
-            echo "Resolved absolute path: $CURRENT_PWD"
-            echo ""
-            echo "=== Constructing Deployment Path: \$CURRENT_PWD/public_html/cds ==="
-            DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
-            echo "Deployment path: $DEPLOY_PATH"
-            echo ""
-            echo "=== Creating deployment directory if needed ==="
-            mkdir -p "$DEPLOY_PATH" || {
-              echo "ERROR: Failed to create directory: $DEPLOY_PATH"
-              exit 1
-            }
-            echo "Directory ready: $DEPLOY_PATH"
-            echo ""
-            echo "=== Final Deployment Location ==="
-            cd "$DEPLOY_PATH"
-            FINAL_PWD="$(pwd)"
-            echo "Absolute path: $FINAL_PWD"
-            echo "Canonical path: $(readlink -f . 2>/dev/null || echo $FINAL_PWD)"
-            echo "Deployment path confirmed: $FINAL_PWD"
-
       - name: Deploy via FTP (Dev)
         if: ${{ vars.FTP_SERVER_DEV }}
         id: ftp-deploy
@@ -89,7 +38,7 @@ jobs:
           password: ${{ vars.FTP_PASSWORD_DEV }}
           protocol: ${{ vars.FTP_PROTOCOL_DEV || 'ftps' }}
           local-dir: ${{ vars.FTP_LOCAL_DIR_DEV || './' }}
-          server-dir: public_html/cds/
+          server-dir: ./
           state-name: .ftp-deploy-dev-state.json
           dangerous-clean-slate: false
           exclude: |
@@ -137,6 +86,11 @@ jobs:
             fi
             DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
             echo "=== Changing to deployment directory: $DEPLOY_PATH ==="
+            # Ensure directory exists
+            mkdir -p "$DEPLOY_PATH" || {
+              echo "ERROR: Failed to create directory: $DEPLOY_PATH"
+              exit 1
+            }
             cd "$DEPLOY_PATH" || {
               echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
               echo "Current directory: $(pwd)"
@@ -144,29 +98,41 @@ jobs:
             }
             echo "Current directory: $(pwd)"
             echo ""
+            echo "=== Waiting for FTP deployment to complete ==="
+            # Wait a bit for FTP files to appear
+            for i in {1..10}; do
+              if [ -f composer.json ]; then
+                echo "✓ composer.json found"
+                break
+              fi
+              echo "Waiting for files... ($i/10)"
+              sleep 2
+            done
+            echo ""
             echo "=== Verifying composer.json exists ==="
             if [ ! -f composer.json ]; then
               echo "ERROR: composer.json not found in $DEPLOY_PATH!"
               echo "Directory contents:"
               ls -la
+              echo ""
+              echo "Checking if files are in parent directory:"
+              ls -la .. | head -10
               exit 1
             fi
             echo "✓ composer.json found"
             echo ""
             echo "=== Removing vendor directory for clean install ==="
-            rm -rf vendor
+            rm -rf vendor || echo "vendor directory doesn't exist (ok)"
             echo "=== Clearing composer cache ==="
             composer clear-cache || true
-            echo "=== Running composer install (clean) ==="
-            composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-            if [ $? -ne 0 ]; then
-              echo "ERROR: Composer install failed!"
-              echo "Trying without --no-dev flag..."
+            echo "=== Running composer install ==="
+            composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist || {
+              echo "WARNING: Composer install with --no-dev failed, trying without it..."
               composer install --optimize-autoloader --no-interaction --prefer-dist
-            fi
+            }
             echo "=== Verifying composer install ==="
-            if [ ! -d vendor ]; then
-              echo "ERROR: vendor directory was not created!"
+            if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
+              echo "ERROR: vendor directory was not created properly!"
               exit 1
             fi
             echo "=== Composer install completed successfully ==="
