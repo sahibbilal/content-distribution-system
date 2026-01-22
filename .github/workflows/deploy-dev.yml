@@ -34,6 +34,9 @@ jobs:
           echo "=== Checking current directory before FTP deployment ==="
           echo "=== Current working directory (pwd) ==="
           pwd
+          cd ../ && pwd && ls -la | head -10
+          cd ../ && pwd && ls -la | head -10
+          cd ../ && pwd && ls -la | head -10
           echo "=== Full absolute path ==="
           echo "$(pwd)"
           echo "=== GitHub Workspace ==="
