@@ -39,6 +39,9 @@ jobs:
           cd ../ && pwd && ls -la | head -10
           echo "=== Full absolute path ==="
           echo "$(pwd)"
+          cd ../ && pwd && ls -la | head -10
+          cd ../ && pwd && ls -la | head -10
+          cd ../ && pwd && ls -la | head -10
           echo "=== GitHub Workspace ==="
           echo "${{ github.workspace }}"
           echo "=== Listing current directory contents ==="
