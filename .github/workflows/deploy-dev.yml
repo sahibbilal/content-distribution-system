@@ -77,6 +77,8 @@ jobs:
             FINAL_PWD="$(pwd)"
             echo "Absolute path: $FINAL_PWD"
             echo "Canonical path: $(readlink -f . 2>/dev/null || echo $FINAL_PWD)"
+            # Output the path for use in FTP deployment
+            echo "DEPLOY_PATH=$DEPLOY_PATH" >> $GITHUB_ENV
 
       - name: Get Deployment Path for FTP
         if: ${{ vars.FTP_SERVER_DEV }}
@@ -84,14 +86,13 @@ jobs:
         run: |
           REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
           if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
-            # Default to home directory or root
+            # For relative paths, we'll use a default - this should match what SSH resolves
             CURRENT_PWD="/"
           elif [ "$REMOTE_DIR" = "/" ]; then
             CURRENT_PWD="/"
           elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
             CURRENT_PWD="$REMOTE_DIR"
           else
-            # Relative path - default to root
             CURRENT_PWD="/"
           fi
           DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
@@ -133,7 +134,7 @@ jobs:
           dry-run: false
           log-level: verbose
 
-      - name: Install PHP Dependencies
+      - name: Verify Files Deployed via FTP
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -142,9 +143,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
+          command_timeout: 10s
           script: |
-            echo "=== Current directory before cd ==="
-            pwd
+            echo "=== Verifying files were deployed via FTP ==="
             REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
             if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
               CURRENT_PWD="$(pwd)"
@@ -156,31 +157,68 @@ jobs:
               CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
             fi
             DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
-            echo "=== Changing to \$CURRENT_PWD/public_html/cds ==="
-            echo "Deployment path: $DEPLOY_PATH"
-            cd "$DEPLOY_PATH" || {
-              echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
-              echo "Trying to create directory if it doesn't exist..."
-              mkdir -p "$DEPLOY_PATH" || {
-                echo "ERROR: Could not create directory: $DEPLOY_PATH"
-                exit 1
-              }
-              cd "$DEPLOY_PATH" || {
-                echo "ERROR: Still failed to change to directory: $DEPLOY_PATH"
-                exit 1
-              }
-            }
-            echo "=== Current directory after cd ==="
-            pwd
-            echo "=== Full absolute path ==="
-            echo "$(pwd)"
-            echo "=== Directory contents ==="
-            ls -la | head -20
-            echo "=== Checking composer.json ==="
-            if [ ! -f composer.json ]; then
-              echo "ERROR: composer.json not found!"
+            echo "Checking deployment path: $DEPLOY_PATH"
+            if [ ! -d "$DEPLOY_PATH" ]; then
+              echo "ERROR: Deployment directory does not exist: $DEPLOY_PATH"
               exit 1
             fi
+            cd "$DEPLOY_PATH"
+            echo "=== Current directory: $(pwd) ==="
+            echo "=== Checking for key files ==="
+            if [ ! -f composer.json ]; then
+              echo "ERROR: composer.json not found!"
+              echo "Directory contents:"
+              ls -la | head -20
+              exit 1
+            fi
+            echo "✓ composer.json found"
+            FILE_COUNT=$(find . -maxdepth 1 -type f | wc -l)
+            echo "Files in root: $FILE_COUNT"
+            if [ "$FILE_COUNT" -lt 5 ]; then
+              echo "WARNING: Very few files found. FTP deployment may have failed."
+            fi
+
+      - name: Install PHP Dependencies
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          command_timeout: 300s
+          script: |
+            set -e
+            echo "=== Install PHP Dependencies ==="
+            REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
+            if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
+              CURRENT_PWD="$(pwd)"
+            elif [ "$REMOTE_DIR" = "/" ]; then
+              CURRENT_PWD="/"
+            elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
+              CURRENT_PWD="$REMOTE_DIR"
+            else
+              CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
+            fi
+            DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
+            echo "=== Changing to deployment directory: $DEPLOY_PATH ==="
+            cd "$DEPLOY_PATH" || {
+              echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
+              echo "Current directory: $(pwd)"
+              exit 1
+            }
+            echo "Current directory: $(pwd)"
+            echo ""
+            echo "=== Verifying composer.json exists ==="
+            if [ ! -f composer.json ]; then
+              echo "ERROR: composer.json not found in $DEPLOY_PATH!"
+              echo "Directory contents:"
+              ls -la
+              exit 1
+            fi
+            echo "✓ composer.json found"
+            echo ""
             echo "=== Removing vendor directory for clean install ==="
             rm -rf vendor
             echo "=== Clearing composer cache ==="
