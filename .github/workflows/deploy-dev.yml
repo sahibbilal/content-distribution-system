@@ -136,6 +136,19 @@ jobs:
             echo "Resolved absolute path: $CURRENT_PWD"
             echo "Full canonical path: $(readlink -f . 2>/dev/null || echo $CURRENT_PWD)"
             echo "This is where FTP will deploy files to"
+            echo ""
+            echo "=== 12. Changing to public_html/cds ==="
+            cd public_html/cds || {
+              echo "WARNING: Could not cd to public_html/cds, trying to create it..."
+              mkdir -p public_html/cds && cd public_html/cds || {
+                echo "ERROR: Failed to create or access directory: public_html/cds"
+                exit 1
+              }
+            }
+            echo "Successfully changed to: public_html/cds"
+            echo "Current directory (pwd): $(pwd)"
+            echo "Full canonical path: $(readlink -f . 2>/dev/null || pwd)"
+            echo "This is the final deployment location: $(pwd)"
 
       - name: Check Current Directory Before FTP Deploy
         if: ${{ vars.FTP_SERVER_DEV }}
@@ -199,7 +212,7 @@ jobs:
           password: ${{ vars.FTP_PASSWORD_DEV }}
           protocol: ${{ vars.FTP_PROTOCOL_DEV || 'ftps' }}
           local-dir: ${{ vars.FTP_LOCAL_DIR_DEV || './' }}
-          server-dir: ${{ vars.FTP_REMOTE_DIR_DEV || '/' }}
+          server-dir: public_html/cds/
           state-name: .ftp-deploy-dev-state.json
           dangerous-clean-slate: false
           exclude: |
@@ -233,10 +246,23 @@ jobs:
           script: |
             echo "=== Current directory before cd ==="
             pwd
-            echo "=== Changing to FTP_REMOTE_DIR_DEV ==="
-            cd ${{ vars.FTP_REMOTE_DIR_DEV }}
+            echo "=== Changing to public_html/cds ==="
+            cd public_html/cds || {
+              echo "ERROR: Failed to change to directory: public_html/cds"
+              echo "Trying to create directory if it doesn't exist..."
+              mkdir -p public_html/cds || {
+                echo "ERROR: Could not create directory: public_html/cds"
+                exit 1
+              }
+              cd public_html/cds || {
+                echo "ERROR: Still failed to change to directory: public_html/cds"
+                exit 1
+              }
+            }
             echo "=== Current directory after cd ==="
             pwd
+            echo "=== Full absolute path ==="
+            echo "$(pwd)"
             echo "=== Directory contents ==="
             ls -la | head -20
             echo "=== Checking composer.json ==="
@@ -274,10 +300,15 @@ jobs:
           script: |
             echo "=== Current directory before cd ==="
             pwd
-            echo "=== Changing to FTP_REMOTE_DIR_DEV ==="
-            cd ${{ vars.FTP_REMOTE_DIR_DEV }}
+            echo "=== Changing to public_html/cds ==="
+            cd public_html/cds || {
+              echo "ERROR: Failed to change to directory: public_html/cds"
+              exit 1
+            }
             echo "=== Current directory after cd ==="
             pwd
+            echo "=== Full absolute path ==="
+            echo "$(pwd)"
             echo "=== Directory contents ==="
             ls -la | head -20
             echo "=== Checking for Node.js and npm ==="
@@ -324,10 +355,15 @@ jobs:
           script: |
             echo "=== Current directory before cd ==="
             pwd
-            echo "=== Changing to FTP_REMOTE_DIR_DEV ==="
-            cd ${{ vars.FTP_REMOTE_DIR_DEV }}
+            echo "=== Changing to public_html/cds ==="
+            cd public_html/cds || {
+              echo "ERROR: Failed to change to directory: public_html/cds"
+              exit 1
+            }
             echo "=== Current directory after cd ==="
             pwd
+            echo "=== Full absolute path ==="
+            echo "$(pwd)"
             echo "=== Directory contents ==="
             ls -la | head -20
             echo "=== Running Laravel setup commands ==="
