@@ -69,11 +69,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            echo "=== Current directory before cd ==="
-            pwd
-            echo "=== Changing to FTP_REMOTE_DIR_DEV ==="
-            cd ${{ vars.FTP_REMOTE_DIR_DEV }}
-            echo "=== Current directory after cd ==="
+            echo "=== Current directory ==="
             pwd
             echo "=== Directory contents ==="
             ls -la | head -20
@@ -82,8 +78,12 @@ jobs:
               echo "ERROR: composer.json not found!"
               exit 1
             fi
-            echo "=== Removing vendor directory for clean install ==="
-            rm -rf vendor
+            echo "=== Checking vendor directory ==="
+            if [ -d vendor ]; then
+              echo "vendor directory exists"
+            else
+              echo "vendor directory does not exist"
+            fi
             echo "=== Clearing composer cache ==="
             composer clear-cache || true
             echo "=== Running composer install (clean) ==="
@@ -110,11 +110,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            echo "=== Current directory before cd ==="
-            pwd
-            echo "=== Changing to FTP_REMOTE_DIR_DEV ==="
-            cd ${{ vars.FTP_REMOTE_DIR_DEV }}
-            echo "=== Current directory after cd ==="
+            echo "=== Current directory ==="
             pwd
             echo "=== Directory contents ==="
             ls -la | head -20
@@ -160,11 +156,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            echo "=== Current directory before cd ==="
-            pwd
-            echo "=== Changing to FTP_REMOTE_DIR_DEV ==="
-            cd ${{ vars.FTP_REMOTE_DIR_DEV }}
-            echo "=== Current directory after cd ==="
+            echo "=== Current directory ==="
             pwd
             echo "=== Directory contents ==="
             ls -la | head -20
