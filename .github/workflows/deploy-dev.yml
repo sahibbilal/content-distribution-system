@@ -79,6 +79,43 @@ jobs:
             echo "Canonical path: $(readlink -f . 2>/dev/null || echo $FINAL_PWD)"
             echo "Deployment path confirmed: $FINAL_PWD"
 
+      - name: Check FTP Root Directory
+        if: ${{ vars.FTP_SERVER_DEV && vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          command_timeout: 10s
+          script: |
+            echo "=== Understanding FTP Server Structure ==="
+            echo "Home directory: $HOME"
+            echo "Current directory: $(pwd)"
+            echo ""
+            echo "=== Checking common FTP root locations ==="
+            # FTP root is often the home directory or public_html
+            if [ -d "$HOME/public_html" ]; then
+              echo "✓ Found: $HOME/public_html"
+              echo "Contents:"
+              ls -la "$HOME/public_html" | head -10
+            fi
+            if [ -d "$HOME/domains" ]; then
+              echo "✓ Found: $HOME/domains"
+              ls -la "$HOME/domains" | head -10
+            fi
+            if [ -d "$HOME/www" ]; then
+              echo "✓ Found: $HOME/www"
+              ls -la "$HOME/www" | head -10
+            fi
+            echo ""
+            echo "=== Checking if cds directory exists anywhere ==="
+            find ~ -type d -name "cds" 2>/dev/null | head -10
+            echo ""
+            echo "=== Checking for recently created directories ==="
+            find ~ -type d -mmin -30 2>/dev/null | head -20
+
       - name: Deploy via FTP (Dev)
         if: ${{ vars.FTP_SERVER_DEV }}
         id: ftp-deploy
@@ -111,6 +148,54 @@ jobs:
           dry-run: false
           log-level: verbose
         continue-on-error: false
+
+      - name: Analyze FTP Deployment Output
+        if: ${{ vars.FTP_SERVER_DEV && vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          command_timeout: 30s
+          script: |
+            echo "=== Analyzing where FTP actually deployed files ==="
+            echo "Home: $HOME"
+            echo "PWD: $(pwd)"
+            echo ""
+            echo "=== Searching for composer.json (most reliable indicator) ==="
+            COMPOSER_LOCATIONS=$(find ~ -name "composer.json" -type f 2>/dev/null | head -5)
+            if [ -n "$COMPOSER_LOCATIONS" ]; then
+              echo "Found composer.json in:"
+              echo "$COMPOSER_LOCATIONS"
+              for loc in $COMPOSER_LOCATIONS; do
+                echo ""
+                echo "Location: $loc"
+                echo "Directory: $(dirname $loc)"
+                echo "Files in directory:"
+                ls -la "$(dirname $loc)" | head -10
+              done
+            else
+              echo "⚠ composer.json not found anywhere"
+            fi
+            echo ""
+            echo "=== Checking public_html/cds ==="
+            if [ -d "$HOME/public_html/cds" ]; then
+              echo "Directory exists: $HOME/public_html/cds"
+              echo "File count: $(find "$HOME/public_html/cds" -maxdepth 1 -type f | wc -l)"
+              echo "Contents:"
+              ls -la "$HOME/public_html/cds"
+            fi
+            echo ""
+            echo "=== Checking if files are in public_html root ==="
+            if [ -d "$HOME/public_html" ]; then
+              echo "Files in $HOME/public_html:"
+              ls -la "$HOME/public_html" | head -15
+            fi
+            echo ""
+            echo "=== Checking for .ftp-deploy-dev-state.json (deployment state file) ==="
+            find ~ -name ".ftp-deploy-dev-state.json" 2>/dev/null
 
       - name: Check FTP Deployment Location
         if: ${{ vars.FTP_SERVER_DEV && vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
