@@ -137,18 +137,47 @@ jobs:
             echo "Full canonical path: $(readlink -f . 2>/dev/null || echo $CURRENT_PWD)"
             echo "This is where FTP will deploy files to"
             echo ""
-            echo "=== 12. Changing to public_html/cds ==="
-            cd public_html/cds || {
-              echo "WARNING: Could not cd to public_html/cds, trying to create it..."
-              mkdir -p public_html/cds && cd public_html/cds || {
-                echo "ERROR: Failed to create or access directory: public_html/cds"
+            echo "=== 12. Constructing full path: \$CURRENT_PWD/public_html/cds ==="
+            DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
+            echo "Deployment path: $DEPLOY_PATH"
+            echo "=== 13. Changing to \$CURRENT_PWD/public_html/cds ==="
+            cd "$DEPLOY_PATH" || {
+              echo "WARNING: Could not cd to $DEPLOY_PATH, trying to create it..."
+              mkdir -p "$DEPLOY_PATH" && cd "$DEPLOY_PATH" || {
+                echo "ERROR: Failed to create or access directory: $DEPLOY_PATH"
                 exit 1
               }
             }
-            echo "Successfully changed to: public_html/cds"
-            echo "Current directory (pwd): $(pwd)"
-            echo "Full canonical path: $(readlink -f . 2>/dev/null || pwd)"
-            echo "This is the final deployment location: $(pwd)"
+            echo "Successfully changed to: $DEPLOY_PATH"
+            FINAL_PWD="$(pwd)"
+            echo "Current directory (pwd): $FINAL_PWD"
+            echo "Full canonical path: $(readlink -f . 2>/dev/null || echo $FINAL_PWD)"
+            echo "This is the final deployment location: $FINAL_PWD"
+            echo "DEPLOY_PATH=$DEPLOY_PATH" >> $GITHUB_ENV
+
+      - name: Get Deployment Path for FTP
+        if: ${{ vars.FTP_SERVER_DEV }}
+        id: get-deploy-path
+        run: |
+          REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
+          if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
+            # Default to home directory or root
+            CURRENT_PWD="/"
+          elif [ "$REMOTE_DIR" = "/" ]; then
+            CURRENT_PWD="/"
+          elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
+            CURRENT_PWD="$REMOTE_DIR"
+          else
+            # Relative path - default to root
+            CURRENT_PWD="/"
+          fi
+          DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
+          # Ensure path ends with /
+          if [[ ! "$DEPLOY_PATH" =~ /$ ]]; then
+            DEPLOY_PATH="${DEPLOY_PATH}/"
+          fi
+          echo "deploy_path=${DEPLOY_PATH}" >> $GITHUB_OUTPUT
+          echo "Deployment path for FTP: ${DEPLOY_PATH}"
 
       - name: Deploy via FTP (Dev)
         if: ${{ vars.FTP_SERVER_DEV }}
@@ -159,7 +188,7 @@ jobs:
           password: ${{ vars.FTP_PASSWORD_DEV }}
           protocol: ${{ vars.FTP_PROTOCOL_DEV || 'ftps' }}
           local-dir: ${{ vars.FTP_LOCAL_DIR_DEV || './' }}
-          server-dir: public_html/cds/
+          server-dir: ${{ steps.get-deploy-path.outputs.deploy_path }}
           state-name: .ftp-deploy-dev-state.json
           dangerous-clean-slate: false
           exclude: |
@@ -193,16 +222,28 @@ jobs:
           script: |
             echo "=== Current directory before cd ==="
             pwd
-            echo "=== Changing to public_html/cds ==="
-            cd public_html/cds || {
-              echo "ERROR: Failed to change to directory: public_html/cds"
+            REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
+            if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
+              CURRENT_PWD="$(pwd)"
+            elif [ "$REMOTE_DIR" = "/" ]; then
+              CURRENT_PWD="/"
+            elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
+              CURRENT_PWD="$REMOTE_DIR"
+            else
+              CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
+            fi
+            DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
+            echo "=== Changing to \$CURRENT_PWD/public_html/cds ==="
+            echo "Deployment path: $DEPLOY_PATH"
+            cd "$DEPLOY_PATH" || {
+              echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
               echo "Trying to create directory if it doesn't exist..."
-              mkdir -p public_html/cds || {
-                echo "ERROR: Could not create directory: public_html/cds"
+              mkdir -p "$DEPLOY_PATH" || {
+                echo "ERROR: Could not create directory: $DEPLOY_PATH"
                 exit 1
               }
-              cd public_html/cds || {
-                echo "ERROR: Still failed to change to directory: public_html/cds"
+              cd "$DEPLOY_PATH" || {
+                echo "ERROR: Still failed to change to directory: $DEPLOY_PATH"
                 exit 1
               }
             }
@@ -247,9 +288,21 @@ jobs:
           script: |
             echo "=== Current directory before cd ==="
             pwd
-            echo "=== Changing to public_html/cds ==="
-            cd public_html/cds || {
-              echo "ERROR: Failed to change to directory: public_html/cds"
+            REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
+            if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
+              CURRENT_PWD="$(pwd)"
+            elif [ "$REMOTE_DIR" = "/" ]; then
+              CURRENT_PWD="/"
+            elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
+              CURRENT_PWD="$REMOTE_DIR"
+            else
+              CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
+            fi
+            DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
+            echo "=== Changing to \$CURRENT_PWD/public_html/cds ==="
+            echo "Deployment path: $DEPLOY_PATH"
+            cd "$DEPLOY_PATH" || {
+              echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
               exit 1
             }
             echo "=== Current directory after cd ==="
@@ -302,9 +355,21 @@ jobs:
           script: |
             echo "=== Current directory before cd ==="
             pwd
-            echo "=== Changing to public_html/cds ==="
-            cd public_html/cds || {
-              echo "ERROR: Failed to change to directory: public_html/cds"
+            REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
+            if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
+              CURRENT_PWD="$(pwd)"
+            elif [ "$REMOTE_DIR" = "/" ]; then
+              CURRENT_PWD="/"
+            elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
+              CURRENT_PWD="$REMOTE_DIR"
+            else
+              CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
+            fi
+            DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
+            echo "=== Changing to \$CURRENT_PWD/public_html/cds ==="
+            echo "Deployment path: $DEPLOY_PATH"
+            cd "$DEPLOY_PATH" || {
+              echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
               exit 1
             }
             echo "=== Current directory after cd ==="
