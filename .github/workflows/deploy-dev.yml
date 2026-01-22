@@ -28,6 +28,26 @@ jobs:
       #     npm ci
       #     npm run build
 
+      - name: Check Local Directory and composer.json Before FTP Deploy
+        if: ${{ vars.FTP_SERVER_DEV }}
+        run: |
+          echo "=== Checking local directory before FTP deployment ==="
+          echo "=== Current working directory ==="
+          pwd
+          echo "=== Listing current directory contents ==="
+          ls -la
+          echo "=== Checking for composer.json ==="
+          if [ ! -f composer.json ]; then
+            echo "ERROR: composer.json not found in current directory!"
+            echo "Current directory: $(pwd)"
+            echo "Directory contents:"
+            ls -la
+            exit 1
+          fi
+          echo "✓ composer.json found successfully"
+          echo "=== composer.json location: $(pwd)/composer.json ==="
+          echo "=== FTP will deploy from: $(pwd) ==="
+
       - name: Deploy via FTP (Dev)
         if: ${{ vars.FTP_SERVER_DEV }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
