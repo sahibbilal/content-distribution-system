@@ -22,11 +22,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Add build steps here if needed (e.g., npm ci && npm run build)
-      # - name: Build
-      #   run: |
-      #     npm ci
-      #     npm run build
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Build Frontend Assets
+        run: npm run build
 
       - name: Deploy Files via SSH
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
@@ -194,10 +200,8 @@ jobs:
               echo "WARNING: package.json not found, skipping npm build"
               exit 0
             fi
-            echo "=== Running npm commands ==="
-            npm ci --production
-            npm run build
-            echo "=== NPM build completed ==="
+            echo "=== Skipping npm build (already built locally) ==="
+            echo "Frontend assets were built in GitHub Actions before deployment"
 
       - name: Run Laravel Setup Commands
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
