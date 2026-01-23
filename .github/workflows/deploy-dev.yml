@@ -38,7 +38,7 @@ jobs:
           password: ${{ vars.FTP_PASSWORD_DEV }}
           protocol: ${{ vars.FTP_PROTOCOL_DEV || 'ftps' }}
           local-dir: ${{ vars.FTP_LOCAL_DIR_DEV || './' }}
-          server-dir: public_html123/cds/
+          server-dir: cds/test/
           state-name: .ftp-deploy-dev-state.json
           dangerous-clean-slate: false
           exclude: |
