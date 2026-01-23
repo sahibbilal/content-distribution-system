@@ -28,33 +28,55 @@ jobs:
       #     npm ci
       #     npm run build
 
-      - name: Deploy Files via SSH (rsync)
+      - name: Deploy Files via SSH
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY_DEV }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p ${{ vars.SSH_PORT_DEV || 22 }} ${{ vars.SSH_HOST_DEV }} >> ~/.ssh/known_hosts 2>/dev/null || true
-          DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
-          echo "Deploying to: $DEPLOY_PATH"
-          rsync -avz --delete \
-            -e "ssh -p ${{ vars.SSH_PORT_DEV || 22 }} -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='node_modules' \
-            --exclude='vendor' \
-            --exclude='storage/logs' \
-            --exclude='storage/framework/cache' \
-            --exclude='storage/framework/sessions' \
-            --exclude='storage/framework/views' \
-            --exclude='.env' \
-            --exclude='.env.backup' \
-            --exclude='.env.production' \
-            --exclude='.git*' \
-            --exclude='.DS_Store' \
-            --exclude='Thumbs.db' \
-            ./ ${{ vars.SSH_USERNAME_DEV }}@${{ vars.SSH_HOST_DEV }}:$DEPLOY_PATH/
-          rm -f ~/.ssh/deploy_key
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          source: "."
+          target: "domains/wpcorex.com/public_html/cds"
+          strip_components: 0
+          rm: false
+          exclude: |
+            .git
+            .github
+            node_modules
+            vendor
+            storage/logs
+            storage/framework/cache
+            storage/framework/sessions
+            storage/framework/views
+            .env
+            .env.backup
+            .env.production
+            .git*
+            .DS_Store
+            Thumbs.db
+
+      - name: Clean Up Remote Directory
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          command_timeout: 30s
+          script: |
+            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+            cd "$DEPLOY_PATH" || exit 1
+            echo "Files deployed to: $(pwd)"
+            echo "File count: $(find . -maxdepth 1 -type f | wc -l)"
+            if [ -f composer.json ]; then
+              echo "✓ composer.json found"
+            else
+              echo "⚠ composer.json not found"
+            fi
 
       - name: Install PHP Dependencies
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
