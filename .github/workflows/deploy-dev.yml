@@ -33,6 +33,24 @@ jobs:
 
       - name: Build Frontend Assets
         run: npm run build
+        
+      - name: Verify Build Output
+        run: |
+          echo "=== Checking build output ==="
+          if [ -d "public/build" ]; then
+            echo "✓ public/build directory exists"
+            if [ -f "public/build/manifest.json" ]; then
+              echo "✓ manifest.json found"
+              echo "Build files:"
+              ls -la public/build/ | head -10
+            else
+              echo "ERROR: manifest.json NOT found!"
+              exit 1
+            fi
+          else
+            echo "ERROR: public/build directory NOT found!"
+            exit 1
+          fi
 
       - name: Deploy Files via SSH
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
@@ -63,7 +81,7 @@ jobs:
             .DS_Store
             Thumbs.db
 
-      - name: Clean Up Remote Directory
+      - name: Verify Deployment
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -76,12 +94,42 @@ jobs:
           script: |
             DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
             cd "$DEPLOY_PATH" || exit 1
+            echo "=== Deployment Verification ==="
             echo "Files deployed to: $(pwd)"
-            echo "File count: $(find . -maxdepth 1 -type f | wc -l)"
+            echo ""
+            echo "=== Checking build files ==="
+            if [ -d "public/build" ]; then
+              echo "✓ public/build directory exists"
+              if [ -f "public/build/manifest.json" ]; then
+                echo "✓ manifest.json found"
+                echo "Build files in public/build:"
+                ls -la public/build/ | head -15
+                echo ""
+                echo "Manifest.json content (first 20 lines):"
+                head -20 public/build/manifest.json || echo "Could not read manifest.json"
+              else
+                echo "ERROR: manifest.json NOT found in public/build!"
+                echo "Contents of public/build:"
+                ls -la public/build/ || echo "Directory is empty or inaccessible"
+                exit 1
+              fi
+            else
+              echo "ERROR: public/build directory NOT found!"
+              echo "Available directories:"
+              ls -la public/ 2>/dev/null | head -10 || echo "public directory not accessible"
+              exit 1
+            fi
+            echo ""
+            echo "=== Checking key files ==="
             if [ -f composer.json ]; then
               echo "✓ composer.json found"
             else
               echo "⚠ composer.json not found"
+            fi
+            if [ -f public/index.php ]; then
+              echo "✓ public/index.php found"
+            else
+              echo "⚠ public/index.php not found"
             fi
 
       - name: Install PHP Dependencies
@@ -306,6 +354,30 @@ jobs:
             if [ ! -f .env ]; then
               echo "WARNING: .env file not found! Make sure it's deployed or created."
             fi
+            # Verify Vite build files
+            echo "=== Verifying Vite build files ==="
+            if [ -d "public/build" ]; then
+              echo "✓ public/build directory exists"
+              if [ -f "public/build/manifest.json" ]; then
+                echo "✓ manifest.json found"
+                echo "Build assets:"
+                ls -la public/build/ | head -10
+                echo ""
+                echo "Checking manifest.json content:"
+                cat public/build/manifest.json | head -20
+              else
+                echo "ERROR: manifest.json NOT found in public/build!"
+                echo "This will cause the frontend to not load!"
+                exit 1
+              fi
+            else
+              echo "ERROR: public/build directory NOT found!"
+              echo "Vite build files are missing. Frontend will not work!"
+              exit 1
+            fi
+            # Set proper permissions for build files
+            echo "=== Setting permissions for build files ==="
+            chmod -R 755 public/build || echo "WARNING: chmod public/build failed"
             # List public directory to verify files
             echo "=== Public directory contents ==="
             ls -la public/ | head -10
