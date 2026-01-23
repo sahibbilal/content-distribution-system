@@ -52,7 +52,21 @@ jobs:
             .ftp-deploy-dev-state.json
           dry-run: false
           log-level: verbose
-
+          script: |
+            REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
+            if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
+              CURRENT_PWD="$(pwd)"
+            elif [ "$REMOTE_DIR" = "/" ]; then
+              CURRENT_PWD="/"
+            elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
+              CURRENT_PWD="$REMOTE_DIR"
+            else
+              CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
+            fi
+            DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
+            echo "Current directory: $(pwd)"
+            echo "Deployment path: $DEPLOY_PATH"
+            cd "$DEPLOY_PATH" 2>/dev/null && pwd || echo "Directory does not exist: $DEPLOY_PATH"
       - name: Install PHP Dependencies
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
         uses: appleboy/ssh-action@v1.0.3
