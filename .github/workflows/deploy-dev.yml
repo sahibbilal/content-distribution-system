@@ -22,15 +22,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Add build steps here if needed (e.g., npm ci && npm run build)
-      # - name: Build
-      #   run: |
-      #     npm ci
-      #     npm run build
-
       - name: Deploy via FTP (Dev)
         if: ${{ vars.FTP_SERVER_DEV }}
-        id: ftp-deploy
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ vars.FTP_SERVER_DEV }}
@@ -59,7 +52,6 @@ jobs:
             .ftp-deploy-dev-state.json
           dry-run: false
           log-level: verbose
-        continue-on-error: false
 
       - name: Install PHP Dependencies
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
@@ -73,7 +65,6 @@ jobs:
           command_timeout: 300s
           script: |
             set -e
-            echo "=== Install PHP Dependencies ==="
             REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
             if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
               CURRENT_PWD="$(pwd)"
@@ -85,57 +76,19 @@ jobs:
               CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
             fi
             DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
-            echo "=== Changing to deployment directory: $DEPLOY_PATH ==="
-            # Ensure directory exists
-            mkdir -p "$DEPLOY_PATH" || {
-              echo "ERROR: Failed to create directory: $DEPLOY_PATH"
-              exit 1
-            }
-            cd "$DEPLOY_PATH" || {
-              echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
-              echo "Current directory: $(pwd)"
-              exit 1
-            }
-            echo "Current directory: $(pwd)"
-            echo ""
-            echo "=== Waiting for FTP deployment to complete ==="
-            # Wait a bit for FTP files to appear
-            for i in {1..10}; do
-              if [ -f composer.json ]; then
-                echo "✓ composer.json found"
-                break
-              fi
-              echo "Waiting for files... ($i/10)"
-              sleep 2
-            done
-            echo ""
-            echo "=== Verifying composer.json exists ==="
+            cd "$DEPLOY_PATH" || exit 1
             if [ ! -f composer.json ]; then
-              echo "ERROR: composer.json not found in $DEPLOY_PATH!"
-              echo "Directory contents:"
-              ls -la
-              echo ""
-              echo "Checking if files are in parent directory:"
-              ls -la .. | head -10
+              echo "ERROR: composer.json not found in $DEPLOY_PATH"
               exit 1
             fi
-            echo "✓ composer.json found"
-            echo ""
-            echo "=== Removing vendor directory for clean install ==="
-            rm -rf vendor || echo "vendor directory doesn't exist (ok)"
-            echo "=== Clearing composer cache ==="
+            rm -rf vendor
             composer clear-cache || true
-            echo "=== Running composer install ==="
-            composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist || {
-              echo "WARNING: Composer install with --no-dev failed, trying without it..."
+            composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist || \
               composer install --optimize-autoloader --no-interaction --prefer-dist
-            }
-            echo "=== Verifying composer install ==="
             if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
-              echo "ERROR: vendor directory was not created properly!"
+              echo "ERROR: Composer install failed"
               exit 1
             fi
-            echo "=== Composer install completed successfully ==="
 
       - name: Install Node Dependencies and Build Assets
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
@@ -147,8 +100,6 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            echo "=== Current directory before cd ==="
-            pwd
             REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
             if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
               CURRENT_PWD="$(pwd)"
@@ -160,49 +111,15 @@ jobs:
               CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
             fi
             DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
-            echo "=== Changing to \$CURRENT_PWD/public_html/cds ==="
-            echo "Deployment path: $DEPLOY_PATH"
-            cd "$DEPLOY_PATH" || {
-              echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
-              exit 1
-            }
-            echo "=== Current directory after cd ==="
-            pwd
-            echo "=== Full absolute path ==="
-            echo "$(pwd)"
-            echo "=== Directory contents ==="
-            ls -la | head -20
-            echo "=== Checking for Node.js and npm ==="
-            if ! command -v node &> /dev/null; then
-              echo "WARNING: Node.js is not installed or not in PATH"
-              echo "Checking common locations..."
-              if [ -f /usr/bin/node ]; then
-                export PATH="/usr/bin:$PATH"
-              elif [ -f /usr/local/bin/node ]; then
-                export PATH="/usr/local/bin:$PATH"
-              elif [ -f ~/.nvm/nvm.sh ]; then
-                source ~/.nvm/nvm.sh
-              fi
+            cd "$DEPLOY_PATH" || exit 1
+            if [ ! -f package.json ]; then
+              exit 0
             fi
             if ! command -v npm &> /dev/null; then
-              echo "ERROR: npm is not installed or not in PATH"
-              echo "Node.js/npm is required to build frontend assets."
-              echo "Please install Node.js on your server or build assets locally before deployment."
-              echo "Current PATH: $PATH"
-              echo "Skipping npm build step..."
               exit 0
             fi
-            echo "Node version: $(node --version)"
-            echo "NPM version: $(npm --version)"
-            echo "=== Checking package.json ==="
-            if [ ! -f package.json ]; then
-              echo "WARNING: package.json not found, skipping npm build"
-              exit 0
-            fi
-            echo "=== Running npm commands ==="
             npm ci --production
             npm run build
-            echo "=== NPM build completed ==="
 
       - name: Run Laravel Setup Commands
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
@@ -214,8 +131,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            echo "=== Current directory before cd ==="
-            pwd
+            set -e
             REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
             if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
               CURRENT_PWD="$(pwd)"
@@ -227,106 +143,27 @@ jobs:
               CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
             fi
             DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
-            echo "=== Changing to \$CURRENT_PWD/public_html/cds ==="
-            echo "Deployment path: $DEPLOY_PATH"
-            cd "$DEPLOY_PATH" || {
-              echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
-              exit 1
-            }
-            echo "=== Current directory after cd ==="
-            pwd
-            echo "=== Full absolute path ==="
-            echo "$(pwd)"
-            echo "=== Directory contents ==="
-            ls -la | head -20
-            echo "=== Running Laravel setup commands ==="
-            # Set proper permissions
-            echo "=== Setting file permissions ==="
-            # Set directory permissions (755 for directories, 644 for files)
-            find . -type d -exec chmod 755 {} \; || echo "WARNING: chmod directories failed"
-            find . -type f -exec chmod 644 {} \; || echo "WARNING: chmod files failed"
-            # Special permissions for storage and cache
-            chmod -R 775 storage bootstrap/cache || echo "WARNING: chmod storage/cache failed"
-            # Make sure public directory is accessible
-            chmod -R 755 public || echo "WARNING: chmod public failed"
-            # Try different chown approaches (some servers don't have www-data group)
-            echo "=== Setting ownership ==="
-            if command -v id &> /dev/null; then
-              CURRENT_USER=$(id -un)
-              CURRENT_GROUP=$(id -gn)
-              echo "Current user: $CURRENT_USER, group: $CURRENT_GROUP"
-              # Set ownership for storage and cache (needs write access)
-              chown -R $CURRENT_USER:$CURRENT_GROUP storage bootstrap/cache 2>/dev/null || echo "WARNING: chown storage/cache failed"
-              # Set ownership for public directory
-              chown -R $CURRENT_USER:$CURRENT_GROUP public 2>/dev/null || echo "WARNING: chown public failed"
-            else
-              echo "WARNING: Cannot determine user/group, skipping chown"
-            fi
-            
-            # Verify composer install before running artisan
-            echo "=== Verifying vendor directory ==="
+            cd "$DEPLOY_PATH" || exit 1
             if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
-              echo "ERROR: vendor/autoload.php not found! Composer install may have failed."
-              echo "Cannot run artisan commands without proper dependencies."
+              echo "ERROR: vendor/autoload.php not found"
               exit 1
             fi
-            
-            # Create storage symlink if it doesn't exist
-            echo "=== Creating storage symlink ==="
+            find . -type d -exec chmod 755 {} \;
+            find . -type f -exec chmod 644 {} \;
+            chmod -R 775 storage bootstrap/cache
+            chmod -R 755 public
             if [ ! -L public/storage ]; then
-              php artisan storage:link || echo "WARNING: storage:link failed"
-            else
-              echo "Storage symlink already exists"
+              php artisan storage:link || true
             fi
-            # Verify symlink
-            if [ -L public/storage ]; then
-              echo "Storage symlink verified: $(readlink public/storage)"
-            else
-              echo "WARNING: Storage symlink not found!"
-            fi
-            
-            # Run database migrations (use --force for production)
-            echo "=== Running migrations ==="
-            php artisan migrate --force || echo "WARNING: Migration skipped or failed"
-            
-            # Clear and cache configuration
-            echo "=== Clearing caches ==="
-            php artisan config:clear || echo "WARNING: config:clear failed"
-            php artisan cache:clear || echo "WARNING: cache:clear failed"
-            php artisan route:clear || echo "WARNING: route:clear failed"
-            php artisan view:clear || echo "WARNING: view:clear failed"
-            
-            # Optimize for production
-            echo "=== Optimizing Laravel ==="
-            php artisan config:cache || echo "WARNING: config:cache failed"
-            php artisan route:cache || echo "WARNING: route:cache failed"
-            php artisan view:cache || echo "WARNING: view:cache failed"
-            php artisan optimize || echo "WARNING: optimize failed"
-            
-            echo "=== Verifying deployment ==="
-            # Check if public/index.php exists
-            if [ ! -f public/index.php ]; then
-              echo "ERROR: public/index.php not found!"
-              exit 1
-            fi
-            # Check if .htaccess exists in public
-            if [ ! -f public/.htaccess ]; then
-              echo "WARNING: public/.htaccess not found! This may cause 403 errors."
-            else
-              echo "public/.htaccess found"
-            fi
-            # Check if .env exists
-            if [ ! -f .env ]; then
-              echo "WARNING: .env file not found! Make sure it's deployed or created."
-            fi
-            # List public directory to verify files
-            echo "=== Public directory contents ==="
-            ls -la public/ | head -10
-            # Check permissions on public/index.php
-            echo "=== Checking public/index.php permissions ==="
-            ls -la public/index.php
-            
-            echo "=== Laravel setup completed ==="
+            php artisan migrate --force || true
+            php artisan config:clear || true
+            php artisan cache:clear || true
+            php artisan route:clear || true
+            php artisan view:clear || true
+            php artisan config:cache || true
+            php artisan route:cache || true
+            php artisan view:cache || true
+            php artisan optimize || true
 
       - name: Restart PHP-FPM (if needed)
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.RESTART_PHP_FPM_DEV == 'true' }}
@@ -338,4 +175,4 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            sudo systemctl restart php8.2-fpm || sudo systemctl restart php-fpm || echo "PHP-FPM restart skipped"
+            sudo systemctl restart php8.2-fpm || sudo systemctl restart php-fpm || true
