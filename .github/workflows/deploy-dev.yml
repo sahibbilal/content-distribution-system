@@ -28,84 +28,33 @@ jobs:
       #     npm ci
       #     npm run build
 
-      - name: Deploy via FTP (Dev)
-        if: ${{ vars.FTP_SERVER_DEV }}
-        id: ftp-deploy
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ vars.FTP_SERVER_DEV }}
-          username: 'u361859791.cdsdeploy'
-          password: 'Mianjee11002@'
-          protocol: ${{ vars.FTP_PROTOCOL_DEV || 'ftps' }}
-          local-dir: ${{ vars.FTP_LOCAL_DIR_DEV || './' }}
-          server-dir: cds/
-          state-name: .ftp-deploy-dev-state.json
-          dangerous-clean-slate: false
-          exclude: |
-            .git/**
-            .github/**
-            node_modules/**
-            vendor/**
-            storage/logs/**
-            storage/framework/cache/**
-            storage/framework/sessions/**
-            storage/framework/views/**
-            .env
-            .env.backup
-            .env.production
-            **/.git*
-            **/.DS_Store
-            **/Thumbs.db
-            .ftp-deploy-dev-state.json
-          dry-run: false
-          log-level: verbose
-        continue-on-error: false
-
-      - name: Check Where FTP Actually Deployed Files
-        if: ${{ vars.FTP_SERVER_DEV && vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ vars.SSH_HOST_DEV }}
-          username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          password: ${{ secrets.SSH_PASSWORD_DEV }}
-          port: ${{ vars.SSH_PORT_DEV || 22 }}
-          command_timeout: 30s
-          script: |
-            echo "=== Checking where FTP actually deployed files ==="
-            echo "Current directory: $(pwd)"
-            echo ""
-            echo "=== Searching for recently created/modified composer.json ==="
-            COMPOSER_FOUND=$(find ~ -name "composer.json" -type f -mmin -5 2>/dev/null | head -1)
-            if [ -n "$COMPOSER_FOUND" ]; then
-              ACTUAL_DIR=$(dirname "$COMPOSER_FOUND")
-              echo "✓ Found composer.json at: $COMPOSER_FOUND"
-              echo "Actual deployment directory: $ACTUAL_DIR"
-              echo ""
-              echo "=== Files in actual deployment location ==="
-              ls -la "$ACTUAL_DIR" | head -15
-              echo ""
-              echo "=== Full path breakdown ==="
-              echo "$ACTUAL_DIR" | sed 's/\//\n/g' | nl
-            else
-              echo "⚠ composer.json not found in recently modified files"
-              echo ""
-              echo "=== Checking common locations ==="
-              for path in "$HOME/cds" "$HOME/public_html/cds" "$HOME/files/public_html/cds" "$HOME/domains" "$HOME/www"; do
-                if [ -d "$path" ]; then
-                  echo "Checking: $path"
-                  FILE_COUNT=$(find "$path" -maxdepth 1 -type f 2>/dev/null | wc -l)
-                  echo "  Files: $FILE_COUNT"
-                  if [ -f "$path/composer.json" ]; then
-                    echo "  ✓ composer.json found here!"
-                    ls -la "$path" | head -10
-                  fi
-                fi
-              done
-              echo ""
-              echo "=== Searching all locations for composer.json ==="
-              find ~ -name "composer.json" -type f 2>/dev/null | head -10
-            fi
+      - name: Deploy Files via SSH (rsync)
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY_DEV }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ vars.SSH_PORT_DEV || 22 }} ${{ vars.SSH_HOST_DEV }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+          echo "Deploying to: $DEPLOY_PATH"
+          rsync -avz --delete \
+            -e "ssh -p ${{ vars.SSH_PORT_DEV || 22 }} -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='vendor' \
+            --exclude='storage/logs' \
+            --exclude='storage/framework/cache' \
+            --exclude='storage/framework/sessions' \
+            --exclude='storage/framework/views' \
+            --exclude='.env' \
+            --exclude='.env.backup' \
+            --exclude='.env.production' \
+            --exclude='.git*' \
+            --exclude='.DS_Store' \
+            --exclude='Thumbs.db' \
+            ./ ${{ vars.SSH_USERNAME_DEV }}@${{ vars.SSH_HOST_DEV }}:$DEPLOY_PATH/
+          rm -f ~/.ssh/deploy_key
 
       - name: Install PHP Dependencies
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
@@ -120,17 +69,7 @@ jobs:
           script: |
             set -e
             echo "=== Install PHP Dependencies ==="
-            REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
-            if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
-              CURRENT_PWD="$(pwd)"
-            elif [ "$REMOTE_DIR" = "/" ]; then
-              CURRENT_PWD="/"
-            elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
-              CURRENT_PWD="$REMOTE_DIR"
-            else
-              CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
-            fi
-            DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
+            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
             echo "=== Changing to deployment directory: $DEPLOY_PATH ==="
             # Ensure directory exists
             mkdir -p "$DEPLOY_PATH" || {
@@ -193,20 +132,8 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            echo "=== Current directory before cd ==="
-            pwd
-            REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
-            if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
-              CURRENT_PWD="$(pwd)"
-            elif [ "$REMOTE_DIR" = "/" ]; then
-              CURRENT_PWD="/"
-            elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
-              CURRENT_PWD="$REMOTE_DIR"
-            else
-              CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
-            fi
-            DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
-            echo "=== Changing to \$CURRENT_PWD/public_html/cds ==="
+            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+            echo "=== Changing to deployment directory ==="
             echo "Deployment path: $DEPLOY_PATH"
             cd "$DEPLOY_PATH" || {
               echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
@@ -260,20 +187,8 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            echo "=== Current directory before cd ==="
-            pwd
-            REMOTE_DIR="${{ vars.FTP_REMOTE_DIR_DEV || '/' }}"
-            if [ "$REMOTE_DIR" = "./" ] || [ "$REMOTE_DIR" = "." ]; then
-              CURRENT_PWD="$(pwd)"
-            elif [ "$REMOTE_DIR" = "/" ]; then
-              CURRENT_PWD="/"
-            elif [[ "$REMOTE_DIR" =~ ^/ ]]; then
-              CURRENT_PWD="$REMOTE_DIR"
-            else
-              CURRENT_PWD="$(cd "$REMOTE_DIR" 2>/dev/null && pwd || echo "$(pwd)/$REMOTE_DIR")"
-            fi
-            DEPLOY_PATH="${CURRENT_PWD}/public_html/cds"
-            echo "=== Changing to \$CURRENT_PWD/public_html/cds ==="
+            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+            echo "=== Changing to deployment directory ==="
             echo "Deployment path: $DEPLOY_PATH"
             cd "$DEPLOY_PATH" || {
               echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
