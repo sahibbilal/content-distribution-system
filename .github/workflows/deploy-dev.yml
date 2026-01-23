@@ -38,7 +38,7 @@ jobs:
           password: 'Mianjee11002@'
           protocol: ${{ vars.FTP_PROTOCOL_DEV || 'ftps' }}
           local-dir: ${{ vars.FTP_LOCAL_DIR_DEV || './' }}
-          server-dir: public_html/cds/
+          server-dir: cds/
           state-name: .ftp-deploy-dev-state.json
           dangerous-clean-slate: false
           exclude: |
@@ -60,6 +60,52 @@ jobs:
           dry-run: false
           log-level: verbose
         continue-on-error: false
+
+      - name: Check Where FTP Actually Deployed Files
+        if: ${{ vars.FTP_SERVER_DEV && vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          command_timeout: 30s
+          script: |
+            echo "=== Checking where FTP actually deployed files ==="
+            echo "Current directory: $(pwd)"
+            echo ""
+            echo "=== Searching for recently created/modified composer.json ==="
+            COMPOSER_FOUND=$(find ~ -name "composer.json" -type f -mmin -5 2>/dev/null | head -1)
+            if [ -n "$COMPOSER_FOUND" ]; then
+              ACTUAL_DIR=$(dirname "$COMPOSER_FOUND")
+              echo "✓ Found composer.json at: $COMPOSER_FOUND"
+              echo "Actual deployment directory: $ACTUAL_DIR"
+              echo ""
+              echo "=== Files in actual deployment location ==="
+              ls -la "$ACTUAL_DIR" | head -15
+              echo ""
+              echo "=== Full path breakdown ==="
+              echo "$ACTUAL_DIR" | sed 's/\//\n/g' | nl
+            else
+              echo "⚠ composer.json not found in recently modified files"
+              echo ""
+              echo "=== Checking common locations ==="
+              for path in "$HOME/cds" "$HOME/public_html/cds" "$HOME/files/public_html/cds" "$HOME/domains" "$HOME/www"; do
+                if [ -d "$path" ]; then
+                  echo "Checking: $path"
+                  FILE_COUNT=$(find "$path" -maxdepth 1 -type f 2>/dev/null | wc -l)
+                  echo "  Files: $FILE_COUNT"
+                  if [ -f "$path/composer.json" ]; then
+                    echo "  ✓ composer.json found here!"
+                    ls -la "$path" | head -10
+                  fi
+                fi
+              done
+              echo ""
+              echo "=== Searching all locations for composer.json ==="
+              find ~ -name "composer.json" -type f 2>/dev/null | head -10
+            fi
 
       - name: Install PHP Dependencies
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
