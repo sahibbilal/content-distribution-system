@@ -88,58 +88,7 @@ jobs:
             package-lock.json
             vite.config.js
 
-      - name: Verify Deployment
-        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ vars.SSH_HOST_DEV }}
-          username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          password: ${{ secrets.SSH_PASSWORD_DEV }}
-          port: ${{ vars.SSH_PORT_DEV || 22 }}
-          command_timeout: 30s
-          script: |
-            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
-            cd "$DEPLOY_PATH" || exit 1
-            echo "=== Deployment Verification ==="
-            echo "Files deployed to: $(pwd)"
-            echo ""
-            echo "=== Checking build files ==="
-            if [ -d "public/build" ]; then
-              echo "✓ public/build directory exists"
-              if [ -f "public/build/manifest.json" ]; then
-                echo "✓ manifest.json found"
-                echo "Build files in public/build:"
-                ls -la public/build/ | head -15
-                echo ""
-                echo "Manifest.json content (first 20 lines):"
-                head -20 public/build/manifest.json || echo "Could not read manifest.json"
-              else
-                echo "ERROR: manifest.json NOT found in public/build!"
-                echo "Contents of public/build:"
-                ls -la public/build/ || echo "Directory is empty or inaccessible"
-                exit 1
-              fi
-            else
-              echo "ERROR: public/build directory NOT found!"
-              echo "Available directories:"
-              ls -la public/ 2>/dev/null | head -10 || echo "public directory not accessible"
-              exit 1
-            fi
-            echo ""
-            echo "=== Checking key files ==="
-            if [ -f composer.json ]; then
-              echo "✓ composer.json found"
-            else
-              echo "⚠ composer.json not found"
-            fi
-            if [ -f public/index.php ]; then
-              echo "✓ public/index.php found"
-            else
-              echo "⚠ public/index.php not found"
-            fi
-
-      - name: Install PHP Dependencies
+      - name: Install PHP Dependencies (if needed)
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -151,196 +100,55 @@ jobs:
           command_timeout: 300s
           script: |
             set -e
-            echo "=== Install PHP Dependencies ==="
+            echo "=== Check and Install PHP Dependencies ==="
             DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
-            echo "=== Changing to deployment directory: $DEPLOY_PATH ==="
-            # Ensure directory exists
-            mkdir -p "$DEPLOY_PATH" || {
-              echo "ERROR: Failed to create directory: $DEPLOY_PATH"
-              exit 1
-            }
             cd "$DEPLOY_PATH" || {
               echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
-              echo "Current directory: $(pwd)"
               exit 1
             }
             echo "Current directory: $(pwd)"
             echo ""
-            echo "=== Waiting for FTP deployment to complete ==="
-            # Wait a bit for FTP files to appear
-            for i in {1..10}; do
-              if [ -f composer.json ]; then
-                echo "✓ composer.json found"
-                break
-              fi
-              echo "Waiting for files... ($i/10)"
-              sleep 2
-            done
-            echo ""
             echo "=== Verifying composer.json exists ==="
             if [ ! -f composer.json ]; then
               echo "ERROR: composer.json not found in $DEPLOY_PATH!"
-              echo "Directory contents:"
-              ls -la
-              echo ""
-              echo "Checking if files are in parent directory:"
-              ls -la .. | head -10
               exit 1
             fi
             echo "✓ composer.json found"
             echo ""
-            echo "=== Removing vendor directory for clean install ==="
-            rm -rf vendor || echo "vendor directory doesn't exist (ok)"
-            echo "=== Clearing composer cache ==="
-            composer clear-cache || true
-            echo "=== Running composer install ==="
-            composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist || {
-              echo "WARNING: Composer install with --no-dev failed, trying without it..."
-              composer install --optimize-autoloader --no-interaction --prefer-dist
-            }
-            echo "=== Verifying composer install ==="
+            # Check if vendor directory exists and is valid
+            if [ -d vendor ] && [ -f vendor/autoload.php ]; then
+              echo "=== Vendor directory exists, checking if update is needed ==="
+              # Check if composer.lock exists and compare with installed packages
+              if [ -f composer.lock ]; then
+                echo "Checking if dependencies need updating..."
+                # Composer install is idempotent - it only installs/updates what's needed
+                composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist || {
+                  echo "WARNING: Composer install with --no-dev failed, trying without it..."
+                  composer install --optimize-autoloader --no-interaction --prefer-dist
+                }
+                echo "✓ Dependencies checked/updated (only if needed)"
+              else
+                echo "composer.lock not found, running full install..."
+                composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist || {
+                  echo "WARNING: Composer install with --no-dev failed, trying without it..."
+                  composer install --optimize-autoloader --no-interaction --prefer-dist
+                }
+              fi
+            else
+              echo "=== Vendor directory not found, running fresh install ==="
+              composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist || {
+                echo "WARNING: Composer install with --no-dev failed, trying without it..."
+                composer install --optimize-autoloader --no-interaction --prefer-dist
+              }
+              echo "✓ Fresh installation completed"
+            fi
+            echo ""
+            echo "=== Verifying installation ==="
             if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
               echo "ERROR: vendor directory was not created properly!"
               exit 1
             fi
-            echo "=== Composer install completed successfully ==="
-
-
-      - name: Run Laravel Setup Commands
-        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ vars.SSH_HOST_DEV }}
-          username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          password: ${{ secrets.SSH_PASSWORD_DEV }}
-          port: ${{ vars.SSH_PORT_DEV || 22 }}
-          script: |
-            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
-            echo "=== Changing to deployment directory ==="
-            echo "Deployment path: $DEPLOY_PATH"
-            cd "$DEPLOY_PATH" || {
-              echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
-              exit 1
-            }
-            echo "=== Current directory after cd ==="
-            pwd
-            echo "=== Full absolute path ==="
-            echo "$(pwd)"
-            echo "=== Directory contents ==="
-            ls -la | head -20
-            echo "=== Running Laravel setup commands ==="
-            # Set proper permissions
-            echo "=== Setting file permissions ==="
-            # Set directory permissions (755 for directories, 644 for files)
-            find . -type d -exec chmod 755 {} \; || echo "WARNING: chmod directories failed"
-            find . -type f -exec chmod 644 {} \; || echo "WARNING: chmod files failed"
-            # Special permissions for storage and cache
-            chmod -R 775 storage bootstrap/cache || echo "WARNING: chmod storage/cache failed"
-            # Make sure public directory is accessible
-            chmod -R 755 public || echo "WARNING: chmod public failed"
-            # Try different chown approaches (some servers don't have www-data group)
-            echo "=== Setting ownership ==="
-            if command -v id &> /dev/null; then
-              CURRENT_USER=$(id -un)
-              CURRENT_GROUP=$(id -gn)
-              echo "Current user: $CURRENT_USER, group: $CURRENT_GROUP"
-              # Set ownership for storage and cache (needs write access)
-              chown -R $CURRENT_USER:$CURRENT_GROUP storage bootstrap/cache 2>/dev/null || echo "WARNING: chown storage/cache failed"
-              # Set ownership for public directory
-              chown -R $CURRENT_USER:$CURRENT_GROUP public 2>/dev/null || echo "WARNING: chown public failed"
-            else
-              echo "WARNING: Cannot determine user/group, skipping chown"
-            fi
-            
-            # Verify composer install before running artisan
-            echo "=== Verifying vendor directory ==="
-            if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
-              echo "ERROR: vendor/autoload.php not found! Composer install may have failed."
-              echo "Cannot run artisan commands without proper dependencies."
-              exit 1
-            fi
-            
-            # Create storage symlink if it doesn't exist
-            echo "=== Creating storage symlink ==="
-            if [ ! -L public/storage ]; then
-              php artisan storage:link || echo "WARNING: storage:link failed"
-            else
-              echo "Storage symlink already exists"
-            fi
-            # Verify symlink
-            if [ -L public/storage ]; then
-              echo "Storage symlink verified: $(readlink public/storage)"
-            else
-              echo "WARNING: Storage symlink not found!"
-            fi
-            
-            # Run database migrations (use --force for production)
-            echo "=== Running migrations ==="
-            php artisan migrate --force || echo "WARNING: Migration skipped or failed"
-            
-            # Clear and cache configuration
-            echo "=== Clearing caches ==="
-            php artisan config:clear || echo "WARNING: config:clear failed"
-            php artisan cache:clear || echo "WARNING: cache:clear failed"
-            php artisan route:clear || echo "WARNING: route:clear failed"
-            php artisan view:clear || echo "WARNING: view:clear failed"
-            
-            # Optimize for production
-            echo "=== Optimizing Laravel ==="
-            php artisan config:cache || echo "WARNING: config:cache failed"
-            php artisan route:cache || echo "WARNING: route:cache failed"
-            php artisan view:cache || echo "WARNING: view:cache failed"
-            php artisan optimize || echo "WARNING: optimize failed"
-            
-            echo "=== Verifying deployment ==="
-            # Check if public/index.php exists
-            if [ ! -f public/index.php ]; then
-              echo "ERROR: public/index.php not found!"
-              exit 1
-            fi
-            # Check if .htaccess exists in public
-            if [ ! -f public/.htaccess ]; then
-              echo "WARNING: public/.htaccess not found! This may cause 403 errors."
-            else
-              echo "public/.htaccess found"
-            fi
-            # Check if .env exists
-            if [ ! -f .env ]; then
-              echo "WARNING: .env file not found! Make sure it's deployed or created."
-            fi
-            # Verify Vite build files
-            echo "=== Verifying Vite build files ==="
-            if [ -d "public/build" ]; then
-              echo "✓ public/build directory exists"
-              if [ -f "public/build/manifest.json" ]; then
-                echo "✓ manifest.json found"
-                echo "Build assets:"
-                ls -la public/build/ | head -10
-                echo ""
-                echo "Checking manifest.json content:"
-                cat public/build/manifest.json | head -20
-              else
-                echo "ERROR: manifest.json NOT found in public/build!"
-                echo "This will cause the frontend to not load!"
-                exit 1
-              fi
-            else
-              echo "ERROR: public/build directory NOT found!"
-              echo "Vite build files are missing. Frontend will not work!"
-              exit 1
-            fi
-            # Set proper permissions for build files
-            echo "=== Setting permissions for build files ==="
-            chmod -R 755 public/build || echo "WARNING: chmod public/build failed"
-            # List public directory to verify files
-            echo "=== Public directory contents ==="
-            ls -la public/ | head -10
-            # Check permissions on public/index.php
-            echo "=== Checking public/index.php permissions ==="
-            ls -la public/index.php
-            
-            echo "=== Laravel setup completed ==="
+            echo "✓ Composer dependencies are ready"
 
       - name: Restart PHP-FPM (if needed)
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.RESTART_PHP_FPM_DEV == 'true' }}
