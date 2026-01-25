@@ -613,21 +613,29 @@ export default {
             
             // Check Facebook login status if on Facebook platform page
             if (platformType === 'facebook' && typeof window !== 'undefined') {
-                // Wait for Facebook SDK to be ready and render login button
+                // Function to render Facebook button
                 const renderFacebookButton = () => {
                     if (typeof FB === 'undefined') {
                         return false;
                     }
                     
-                    fbSDKReady.value = true;
-                    
-                    // Use nextTick to ensure DOM is ready
-                    nextTick(() => {
+                    // Wait for DOM to be ready with multiple attempts
+                    const tryRender = (attempts = 0) => {
                         const container = document.getElementById('fb-login-button-container');
+                        
                         if (!container) {
-                            console.warn('Facebook login button container not found');
-                            return;
+                            if (attempts < 20) {
+                                // Try again after a short delay (max 2 seconds)
+                                setTimeout(() => tryRender(attempts + 1), 100);
+                                return;
+                            } else {
+                                console.error('Facebook login button container not found after multiple attempts');
+                                error.value = 'Failed to load Facebook login button. Please refresh the page.';
+                                return;
+                            }
                         }
+                        
+                        fbSDKReady.value = true;
                         
                         // Check if button already rendered
                         if (container.querySelector('iframe')) {
@@ -667,33 +675,41 @@ export default {
                             console.error('Error parsing Facebook XFBML:', e);
                             error.value = 'Failed to load Facebook login button. Please refresh the page.';
                         }
+                    };
+                    
+                    // Use nextTick first, then try rendering
+                    nextTick(() => {
+                        tryRender();
                     });
                     
                     return true;
                 };
                 
-                // Try to render immediately if SDK is ready
-                if (renderFacebookButton()) {
-                    // Check current login status
-                    checkLoginState();
-                } else {
-                    // Wait for SDK to load
-                    const checkFB = setInterval(() => {
-                        if (renderFacebookButton()) {
+                // Wait a bit for Vue to render the component
+                setTimeout(() => {
+                    // Try to render immediately if SDK is ready
+                    if (renderFacebookButton()) {
+                        // Check current login status
+                        checkLoginState();
+                    } else {
+                        // Wait for SDK to load
+                        const checkFB = setInterval(() => {
+                            if (typeof FB !== 'undefined' && renderFacebookButton()) {
+                                clearInterval(checkFB);
+                                // Check current login status
+                                checkLoginState();
+                            }
+                        }, 100);
+                        
+                        // Clear interval after 10 seconds
+                        setTimeout(() => {
                             clearInterval(checkFB);
-                            // Check current login status
-                            checkLoginState();
-                        }
-                    }, 100);
-                    
-                    // Clear interval after 10 seconds
-                    setTimeout(() => {
-                        clearInterval(checkFB);
-                        if (!fbSDKReady.value) {
-                            error.value = 'Facebook SDK failed to load. Please refresh the page.';
-                        }
-                    }, 10000);
-                }
+                            if (!fbSDKReady.value) {
+                                error.value = 'Facebook SDK failed to load. Please refresh the page.';
+                            }
+                        }, 10000);
+                    }
+                }, 200); // Small delay to ensure Vue has rendered
             }
         });
 
