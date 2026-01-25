@@ -116,6 +116,29 @@ router.beforeEach((to, from, next) => {
     }
 });
 
+// Facebook Login Status Check
+function checkFacebookLoginStatus() {
+    if (typeof FB !== 'undefined') {
+        FB.getLoginStatus(function(response) {
+            console.log('Facebook login status:', response);
+            // If user is connected to Facebook, you can handle it here
+            if (response.status === 'connected') {
+                // User is logged in to Facebook
+                // You can optionally sync with your backend here
+                console.log('Facebook user connected:', response.authResponse.userID);
+            }
+        });
+    }
+}
+
+// Wait for Facebook SDK to load
+window.fbAsyncInit = function() {
+    if (typeof FB !== 'undefined') {
+        // Check login status when SDK is ready
+        checkFacebookLoginStatus();
+    }
+};
+
 // Create Vue app
 const app = createApp(App);
 app.use(router);

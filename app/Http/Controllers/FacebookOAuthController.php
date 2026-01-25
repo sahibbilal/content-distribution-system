@@ -283,10 +283,77 @@ class FacebookOAuthController extends Controller
 
     /**
      * Get user's pages (for page selection)
+     * Can accept access_token as query parameter for client-side SDK tokens
      */
     public function getPages(Request $request)
     {
         $user = $request->user();
+        
+        // If access_token is provided (from client-side SDK), use it directly
+        $accessToken = $request->query('access_token');
+        
+        if ($accessToken) {
+            try {
+                // Exchange short-lived token for long-lived token
+                $appId = trim(env('FACEBOOK_APP_ID', ''));
+                $appSecret = trim(env('FACEBOOK_APP_SECRET', ''));
+                
+                $tokenResponse = Http::get('https://graph.facebook.com/v18.0/oauth/access_token', [
+                    'grant_type' => 'fb_exchange_token',
+                    'client_id' => $appId,
+                    'client_secret' => $appSecret,
+                    'fb_exchange_token' => $accessToken,
+                ]);
+                
+                if (!$tokenResponse->successful()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to exchange token',
+                    ], 400);
+                }
+                
+                $tokenData = $tokenResponse->json();
+                $longLivedToken = $tokenData['access_token'] ?? $accessToken;
+                
+                // Get user's pages
+                $pagesResponse = Http::get('https://graph.facebook.com/v18.0/me/accounts', [
+                    'access_token' => $longLivedToken,
+                    'fields' => 'id,name,access_token,instagram_business_account',
+                ]);
+                
+                if (!$pagesResponse->successful()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to fetch pages',
+                    ], 400);
+                }
+                
+                $pagesData = $pagesResponse->json();
+                $pages = $pagesData['data'] ?? [];
+                
+                // Format pages for response
+                $formattedPages = array_map(function($page) {
+                    return [
+                        'id' => $page['id'],
+                        'name' => $page['name'],
+                        'access_token' => $page['access_token'],
+                        'instagram_business_account' => $page['instagram_business_account'] ?? null,
+                    ];
+                }, $pages);
+                
+                return response()->json([
+                    'success' => true,
+                    'pages' => $formattedPages,
+                ]);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error fetching pages: ' . $e->getMessage(),
+                ], 500);
+            }
+        }
+        
+        // Otherwise, get from stored platform
         $platform = Platform::where('user_id', $user->id)
             ->where('platform_type', 'facebook')
             ->where('is_active', true)

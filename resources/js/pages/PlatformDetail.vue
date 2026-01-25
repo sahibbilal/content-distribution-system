@@ -93,11 +93,15 @@
                     class="btn-facebook" 
                     :disabled="linkingFacebook"
                 >
-                    <span v-if="!linkingFacebook">📘 Login with Facebook</span>
+                    <svg v-if="!linkingFacebook" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px; vertical-align: middle;">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                    <span v-if="!linkingFacebook">Continue with Facebook</span>
                     <span v-else>Connecting...</span>
                 </button>
                 <p class="help-text">
-                    Click to authorize and connect your Facebook Pages and Instagram accounts automatically.
+                    Click to authorize and connect your Facebook Pages and Instagram accounts automatically. 
+                    You'll be able to select which Page to connect.
                 </p>
 
                 <div class="divider">OR</div>
@@ -421,25 +425,87 @@ export default {
             }
         };
 
-        const loginWithFacebook = async () => {
+        const checkFacebookLoginState = () => {
+            if (typeof FB !== 'undefined') {
+                FB.getLoginStatus(function(response) {
+                    handleFacebookStatusChange(response);
+                });
+            }
+        };
+
+        const handleFacebookStatusChange = async (response) => {
+            console.log('Facebook login status changed:', response);
+            
+            if (response.status === 'connected') {
+                // User is logged into Facebook
+                linkingFacebook.value = true;
+                error.value = '';
+                success.value = '';
+                
+                try {
+                    // Get user's pages
+                    const authResponse = response.authResponse;
+                    
+                    // First, verify the token with our backend and get pages
+                    const pagesResponse = await axios.get('/platforms/facebook/oauth/pages', {
+                        params: {
+                            access_token: authResponse.accessToken
+                        }
+                    });
+                    
+                    if (pagesResponse.data.pages && pagesResponse.data.pages.length > 0) {
+                        // If multiple pages, let user select (for now, use first page)
+                        const selectedPage = pagesResponse.data.pages[0];
+                        
+                        // Connect the platform with the page credentials
+                        await axios.post('/platforms/facebook/connect', {
+                            credentials: {
+                                access_token: selectedPage.access_token,
+                                page_id: selectedPage.id,
+                                page_name: selectedPage.name,
+                                instagram_account_id: selectedPage.instagram_business_account?.id || null,
+                            }
+                        });
+                        
+                        success.value = `Successfully connected to ${selectedPage.name}!`;
+                        await loadPlatform();
+                    } else {
+                        error.value = 'No Facebook Pages found. Please create a Facebook Page first.';
+                    }
+                } catch (err) {
+                    error.value = err.response?.data?.message || 'Failed to connect Facebook account';
+                    console.error('Facebook connection error:', err);
+                } finally {
+                    linkingFacebook.value = false;
+                }
+            } else if (response.status === 'not_authorized') {
+                // User is logged into Facebook but not authorized for this app
+                error.value = 'Please authorize this app to access your Facebook account.';
+                linkingFacebook.value = false;
+            } else {
+                // User is not logged into Facebook
+                linkingFacebook.value = false;
+            }
+        };
+
+        const loginWithFacebook = () => {
             if (platformType !== 'facebook') return;
+            
+            if (typeof FB === 'undefined') {
+                error.value = 'Facebook SDK not loaded. Please refresh the page.';
+                return;
+            }
             
             linkingFacebook.value = true;
             error.value = '';
             success.value = '';
 
-            try {
-                const response = await axios.get('/platforms/facebook/oauth/initiate');
-                if (response.data.auth_url) {
-                    window.location.href = response.data.auth_url;
-                } else {
-                    error.value = 'Failed to initiate Facebook OAuth';
-                    linkingFacebook.value = false;
-                }
-            } catch (err) {
-                error.value = err.response?.data?.message || 'Failed to initiate Facebook login';
-                linkingFacebook.value = false;
-            }
+            // Use Facebook SDK to login
+            FB.login(function(response) {
+                handleFacebookStatusChange(response);
+            }, {
+                scope: 'pages_manage_posts,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,business_management'
+            });
         };
 
         const testConnection = async () => {
@@ -518,7 +584,7 @@ export default {
         onMounted(() => {
             loadPlatform();
             
-            // Check for OAuth callback parameters
+            // Check for OAuth callback parameters (for LinkedIn and TikTok)
             const urlParams = new URLSearchParams(window.location.search);
             const linkedinSuccess = urlParams.get('linkedin_success');
             const linkedinError = urlParams.get('linkedin_error');
@@ -550,6 +616,7 @@ export default {
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
             
+            // Handle Facebook OAuth callback (fallback for server-side OAuth)
             if (facebookSuccess) {
                 success.value = facebookMessage ? decodeURIComponent(facebookMessage) : 'Facebook connected successfully!';
                 loadPlatform();
@@ -559,6 +626,20 @@ export default {
             if (facebookError) {
                 error.value = decodeURIComponent(facebookError);
                 window.history.replaceState({}, document.title, window.location.pathname);
+            }
+            
+            // Check Facebook login status if on Facebook platform page
+            if (platformType === 'facebook' && typeof window !== 'undefined') {
+                // Wait for Facebook SDK to be ready
+                const checkFB = setInterval(() => {
+                    if (typeof FB !== 'undefined') {
+                        clearInterval(checkFB);
+                        checkFacebookLoginState();
+                    }
+                }, 100);
+                
+                // Clear interval after 5 seconds
+                setTimeout(() => clearInterval(checkFB), 5000);
             }
         });
 

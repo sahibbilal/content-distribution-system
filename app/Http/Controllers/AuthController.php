@@ -76,5 +76,63 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Logged out successfully']);
     }
+
+    public function facebookLogin(Request $request)
+    {
+        $request->validate([
+            'access_token' => 'required|string',
+            'user_id' => 'required|string',
+        ]);
+
+        try {
+            // Verify the Facebook access token and get user info
+            $accessToken = $request->access_token;
+            $fbUserId = $request->user_id;
+
+            // Call Facebook Graph API to verify token and get user info
+            $fbResponse = \Illuminate\Support\Facades\Http::get("https://graph.facebook.com/v18.0/me", [
+                'fields' => 'id,name,email',
+                'access_token' => $accessToken,
+            ]);
+
+            if (!$fbResponse->successful()) {
+                return response()->json([
+                    'message' => 'Invalid Facebook access token',
+                ], 401);
+            }
+
+            $fbUser = $fbResponse->json();
+
+            // Find or create user
+            $user = User::where('email', $fbUser['email'] ?? null)
+                ->orWhere(function($query) use ($fbUserId) {
+                    // You might want to store Facebook user ID in a separate column
+                    // For now, we'll use email
+                })
+                ->first();
+
+            if (!$user) {
+                // Create new user from Facebook data
+                $user = User::create([
+                    'name' => $fbUser['name'] ?? 'Facebook User',
+                    'email' => $fbUser['email'] ?? $fbUserId . '@facebook.com',
+                    'password' => Hash::make(uniqid()), // Random password since Facebook login doesn't provide one
+                    'email_verified_at' => now(), // Facebook emails are considered verified
+                ]);
+            }
+
+            // Generate token
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'user' => $user,
+                'token' => $token,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Facebook login failed: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }
 
