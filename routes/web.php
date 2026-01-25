@@ -26,6 +26,23 @@ Route::get('/test-laravel', function () {
     ]);
 });
 
+// Diagnostic route to check build files
+Route::get('/test-build-files', function () {
+    $buildPath = public_path('build');
+    $manifestPath = public_path('build/manifest.json');
+    
+    return response()->json([
+        'build_directory_exists' => is_dir($buildPath),
+        'build_directory_path' => $buildPath,
+        'manifest_exists' => file_exists($manifestPath),
+        'manifest_path' => $manifestPath,
+        'build_directory_contents' => is_dir($buildPath) ? array_slice(scandir($buildPath), 2) : [],
+        'manifest_content' => file_exists($manifestPath) ? json_decode(file_get_contents($manifestPath), true) : null,
+        'public_path' => public_path(),
+        'base_path' => base_path(),
+    ]);
+});
+
 // OAuth callbacks (needs session middleware)
 Route::get('/api/platforms/linkedin/oauth/callback', [\App\Http\Controllers\LinkedInOAuthController::class, 'callback']);
 Route::get('/api/platforms/tiktok/oauth/callback', [\App\Http\Controllers\TikTokOAuthController::class, 'callback']);

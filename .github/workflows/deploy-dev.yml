@@ -45,6 +45,13 @@ jobs:
               echo "✓ manifest.json found"
               echo "Build files:"
               ls -la public/build/ | head -10
+              echo ""
+              echo "=== Verifying build files will be deployed ==="
+              echo "Checking if files exist before deployment:"
+              find public/build -type f | head -10
+              echo ""
+              echo "Total files in build directory:"
+              find public/build -type f | wc -l
             else
               echo "ERROR: manifest.json NOT found!"
               exit 1
@@ -150,7 +157,7 @@ jobs:
             fi
             echo "✓ Composer dependencies are ready"
 
-      - name: Ensure Build Directory .htaccess
+      - name: Verify Build Files Deployment
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -162,6 +169,38 @@ jobs:
           script: |
             DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
             cd "$DEPLOY_PATH" || exit 1
+            echo "=== Verifying Build Files Deployment ==="
+            echo "Current directory: $(pwd)"
+            echo ""
+            echo "=== Checking public/build directory ==="
+            if [ -d "public/build" ]; then
+              echo "✓ public/build directory exists"
+              echo "Contents of public/build:"
+              ls -la public/build/ | head -20
+              echo ""
+              if [ -f "public/build/manifest.json" ]; then
+                echo "✓ manifest.json found"
+                echo "Manifest.json content (first 30 lines):"
+                head -30 public/build/manifest.json
+              else
+                echo "ERROR: manifest.json NOT found in public/build!"
+                exit 1
+              fi
+              echo ""
+              if [ -d "public/build/assets" ]; then
+                echo "✓ assets directory exists"
+                echo "JS/CSS files in assets:"
+                ls -la public/build/assets/ | head -10
+              else
+                echo "WARNING: assets directory not found"
+              fi
+            else
+              echo "ERROR: public/build directory NOT found!"
+              echo "Available directories in public:"
+              ls -la public/ | head -10
+              exit 1
+            fi
+            echo ""
             echo "=== Ensuring build directory .htaccess ==="
             mkdir -p public/build
             echo "# Allow direct access to all files in build directory" > public/build/.htaccess
