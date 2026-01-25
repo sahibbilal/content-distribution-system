@@ -9,14 +9,14 @@
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Exclude build directory - serve files directly if they exist
+    # CRITICAL: Exclude build directory completely - no file check needed
+    # This prevents any request to /build/ from being routed to Laravel
     RewriteCond %{REQUEST_URI} ^/build/
-    RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
 
-    # Exclude static assets from rewrite rules (serve directly if file exists)
+    # Exclude all static asset files from Laravel routing
     RewriteCond %{REQUEST_FILENAME} -f
-    RewriteCond %{REQUEST_URI} \.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|map)$ [NC]
+    RewriteCond %{REQUEST_URI} \.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|map|json)$ [NC]
     RewriteRule ^ - [L]
 
     # Redirect Trailing Slashes If Not A Folder...
@@ -35,4 +35,12 @@
     AddType application/javascript js mjs
     AddType text/css css
     AddType application/json json map
+    AddType image/svg+xml svg
+</IfModule>
+
+# Force correct Content-Type header for JavaScript
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|mjs)$">
+        Header set Content-Type "application/javascript; charset=utf-8"
+    </FilesMatch>
 </IfModule>

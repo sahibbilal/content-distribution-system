@@ -150,6 +150,33 @@ jobs:
             fi
             echo "✓ Composer dependencies are ready"
 
+      - name: Ensure Build Directory .htaccess
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          script: |
+            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+            cd "$DEPLOY_PATH" || exit 1
+            echo "=== Ensuring build directory .htaccess ==="
+            mkdir -p public/build
+            echo "# Allow direct access to all files in build directory" > public/build/.htaccess
+            echo "<IfModule mod_rewrite.c>" >> public/build/.htaccess
+            echo "    RewriteEngine Off" >> public/build/.htaccess
+            echo "</IfModule>" >> public/build/.htaccess
+            echo "" >> public/build/.htaccess
+            echo "# Set proper MIME types" >> public/build/.htaccess
+            echo "<IfModule mod_mime.c>" >> public/build/.htaccess
+            echo "    AddType application/javascript js mjs" >> public/build/.htaccess
+            echo "    AddType text/css css" >> public/build/.htaccess
+            echo "    AddType application/json json map" >> public/build/.htaccess
+            echo "</IfModule>" >> public/build/.htaccess
+            echo "✓ Build directory .htaccess created"
+
       - name: Restart PHP-FPM (if needed)
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.RESTART_PHP_FPM_DEV == 'true' }}
         uses: appleboy/ssh-action@v1.0.3
