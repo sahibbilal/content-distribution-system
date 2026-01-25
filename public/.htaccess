@@ -1,4 +1,4 @@
-<IfModule mod_rewrite.c>
+﻿<IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
     </IfModule>
@@ -8,6 +8,16 @@
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Exclude build directory - serve files directly if they exist
+    RewriteCond %{REQUEST_URI} ^/build/
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Exclude static assets from rewrite rules (serve directly if file exists)
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteCond %{REQUEST_URI} \.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|map)$ [NC]
+    RewriteRule ^ - [L]
 
     # Redirect Trailing Slashes If Not A Folder...
     RewriteCond %{REQUEST_FILENAME} !-d
@@ -20,3 +30,9 @@
     RewriteRule ^ index.php [L]
 </IfModule>
 
+# Set proper MIME types for JavaScript modules
+<IfModule mod_mime.c>
+    AddType application/javascript js mjs
+    AddType text/css css
+    AddType application/json json map
+</IfModule>
