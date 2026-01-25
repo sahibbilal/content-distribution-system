@@ -88,7 +88,11 @@
             <!-- Facebook OAuth Login -->
             <div v-else-if="platformType === 'facebook'" class="connection-section">
                 <h3>Connect with Facebook</h3>
-                <div class="facebook-login-wrapper" id="fb-login-button-container"></div>
+                <div class="facebook-login-wrapper" id="fb-login-button-container">
+                    <div v-if="!fbSDKReady" class="fb-loading">
+                        Loading Facebook login...
+                    </div>
+                </div>
                 <p class="help-text">
                     Click to authorize and connect your Facebook Pages and Instagram accounts automatically. 
                     You'll be able to select which Page to connect.
@@ -326,6 +330,7 @@ export default {
         const credentials = ref({});
         const isConnected = ref(false);
         const platformId = ref(null);
+        const fbSDKReady = ref(false);
 
         const platformInfo = computed(() => {
             const platforms = {
@@ -609,38 +614,86 @@ export default {
             // Check Facebook login status if on Facebook platform page
             if (platformType === 'facebook' && typeof window !== 'undefined') {
                 // Wait for Facebook SDK to be ready and render login button
-                const checkFB = setInterval(() => {
-                    if (typeof FB !== 'undefined') {
-                        clearInterval(checkFB);
-                        
-                        // Use nextTick to ensure DOM is ready
-                        nextTick(() => {
-                            const container = document.getElementById('fb-login-button-container');
-                            if (container && !container.querySelector('iframe')) {
-                                // Create the XFBML button element
-                                container.innerHTML = `
-                                    <fb:login-button 
-                                        scope="pages_manage_posts,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,business_management"
-                                        onlogin="checkLoginState();"
-                                        data-size="large"
-                                        data-button-type="login_with"
-                                        data-layout="default"
-                                        data-auto-logout-link="false"
-                                        data-use-continue-as="false">
-                                    </fb:login-button>
-                                `;
-                                // Parse XFBML tags (Facebook login button)
-                                FB.XFBML.parse(container);
-                            }
-                        });
-                        
-                        // Check current login status
-                        checkLoginState();
+                const renderFacebookButton = () => {
+                    if (typeof FB === 'undefined') {
+                        return false;
                     }
-                }, 100);
+                    
+                    fbSDKReady.value = true;
+                    
+                    // Use nextTick to ensure DOM is ready
+                    nextTick(() => {
+                        const container = document.getElementById('fb-login-button-container');
+                        if (!container) {
+                            console.warn('Facebook login button container not found');
+                            return;
+                        }
+                        
+                        // Check if button already rendered
+                        if (container.querySelector('iframe')) {
+                            console.log('Facebook button already rendered');
+                            return;
+                        }
+                        
+                        // Create the XFBML button element
+                        const buttonHTML = `
+                            <fb:login-button 
+                                scope="pages_manage_posts,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,business_management"
+                                onlogin="checkLoginState();"
+                                data-size="large"
+                                data-button-type="login_with"
+                                data-layout="default"
+                                data-auto-logout-link="false"
+                                data-use-continue-as="false">
+                            </fb:login-button>
+                        `;
+                        
+                        container.innerHTML = buttonHTML;
+                        
+                        // Parse XFBML tags (Facebook login button)
+                        try {
+                            FB.XFBML.parse(container);
+                            console.log('Facebook login button parsed successfully');
+                            
+                            // Double check after a short delay
+                            setTimeout(() => {
+                                if (!container.querySelector('iframe')) {
+                                    console.warn('Facebook button not rendered, trying fallback');
+                                    // Fallback: try parsing the entire document
+                                    FB.XFBML.parse();
+                                }
+                            }, 1000);
+                        } catch (e) {
+                            console.error('Error parsing Facebook XFBML:', e);
+                            error.value = 'Failed to load Facebook login button. Please refresh the page.';
+                        }
+                    });
+                    
+                    return true;
+                };
                 
-                // Clear interval after 5 seconds
-                setTimeout(() => clearInterval(checkFB), 5000);
+                // Try to render immediately if SDK is ready
+                if (renderFacebookButton()) {
+                    // Check current login status
+                    checkLoginState();
+                } else {
+                    // Wait for SDK to load
+                    const checkFB = setInterval(() => {
+                        if (renderFacebookButton()) {
+                            clearInterval(checkFB);
+                            // Check current login status
+                            checkLoginState();
+                        }
+                    }, 100);
+                    
+                    // Clear interval after 10 seconds
+                    setTimeout(() => {
+                        clearInterval(checkFB);
+                        if (!fbSDKReady.value) {
+                            error.value = 'Facebook SDK failed to load. Please refresh the page.';
+                        }
+                    }, 10000);
+                }
             }
         });
 
@@ -659,6 +712,7 @@ export default {
             credentials,
             isConnected,
             hasCredentials,
+            fbSDKReady,
             loginWithLinkedIn,
             loginWithTikTok,
             testConnection,
@@ -832,10 +886,18 @@ export default {
     margin-bottom: 1rem;
     display: flex;
     justify-content: center;
+    min-height: 40px;
+    align-items: center;
 }
 
 .facebook-login-wrapper iframe {
     max-width: 100%;
+}
+
+.fb-loading {
+    color: #666;
+    font-size: 0.9rem;
+    padding: 0.5rem;
 }
 
 .help-text {

@@ -45,8 +45,8 @@
           
         FB.AppEvents.logPageView();
         
-        // Parse XFBML tags after SDK is loaded
-        FB.XFBML.parse();
+        // Don't parse XFBML here - let Vue components handle it
+        // This ensures the DOM is ready when we parse
       };
 
       (function(d, s, id){
