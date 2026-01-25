@@ -174,44 +174,17 @@ jobs:
             # Check database connection first
             php artisan db:show || echo "WARNING: db:show failed, but continuing..."
             echo ""
-            # Ensure migrations table exists
-            echo "=== Ensuring migrations table exists ==="
-            php artisan migrate:install 2>/dev/null || echo "Migrations table already exists or created"
-            echo ""
-            echo "=== Checking migration status ==="
-            php artisan migrate:status || echo "Could not check migration status (this is OK if no migrations have run)"
-            echo ""
             echo "=== Running migrations ==="
-            # Run migrations - if tables exist, we'll handle the error
-            MIGRATE_OUTPUT=$(php artisan migrate --force 2>&1) || {
-              if echo "$MIGRATE_OUTPUT" | grep -q "already exists"; then
-                echo "WARNING: Some tables already exist but migrations table doesn't have records"
-                echo "This usually means tables were created manually or migrations table was cleared"
-                echo ""
-                echo "=== Attempting to run migrations with --pretend to see what would run ==="
-                php artisan migrate --pretend || true
-                echo ""
-                echo "INFO: Migrations that create existing tables will fail, but others will run"
-                echo "If you need to fix this, you can either:"
-                echo "1. Manually insert records into migrations table for existing tables, OR"
-                echo "2. Drop existing tables and run migrations fresh"
-                echo ""
-                echo "Continuing with migration attempt (some may fail, but new ones will run)..."
-                # Try to run migrations anyway - new ones will succeed
-                php artisan migrate --force 2>&1 | grep -v "already exists" || {
-                  echo "Some migrations failed due to existing tables, but checking if any succeeded..."
-                }
-              else
-                echo "ERROR: Migration failed!"
-                echo "$MIGRATE_OUTPUT"
-                exit 1
-              fi
+            php artisan migrate --force || {
+              echo "ERROR: Migration failed!"
+              echo "Checking migration status:"
+              php artisan migrate:status || true
+              exit 1
             }
+            echo "✓ Migrations completed successfully"
             echo ""
-            echo "=== Final migration status ==="
+            echo "=== Migration status ==="
             php artisan migrate:status || echo "WARNING: Could not show migration status"
-            echo ""
-            echo "✓ Migration process completed"
 
       - name: Clear Laravel Caches
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
