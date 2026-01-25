@@ -21,9 +21,12 @@ if (import.meta.env.VITE_API_URL) {
 } else if (window.location.hostname.includes('ddev.site')) {
     // Use relative path when on DDEV site
     apiBaseURL = '/api';
+} else if (window.location.hostname === 'cds.wpcorex.com' || window.location.hostname.includes('wpcorex.com')) {
+    // Production environment
+    apiBaseURL = 'https://cds.wpcorex.com/api';
 } else {
-    // Fallback to DDEV site
-    apiBaseURL = 'https://content-distribution-system.ddev.site/api';
+    // Fallback to relative path (works for most cases)
+    apiBaseURL = '/api';
 }
 
 axios.defaults.baseURL = apiBaseURL;
