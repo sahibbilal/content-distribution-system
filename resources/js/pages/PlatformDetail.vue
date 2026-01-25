@@ -646,7 +646,6 @@ export default {
                         // Create the XFBML button element
                         const buttonHTML = `
                             <fb:login-button 
-                                scope="pages_manage_posts,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,business_management"
                                 onlogin="checkLoginState();"
                                 data-size="large"
                                 data-button-type="login_with"
