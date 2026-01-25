@@ -157,6 +157,35 @@ jobs:
             fi
             echo "✓ Composer dependencies are ready"
 
+      - name: Run Database Migrations
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SSH_HOST_DEV }}
+          username: ${{ vars.SSH_USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          password: ${{ secrets.SSH_PASSWORD_DEV }}
+          port: ${{ vars.SSH_PORT_DEV || 22 }}
+          command_timeout: 120s
+          script: |
+            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+            cd "$DEPLOY_PATH" || exit 1
+            echo "=== Running Database Migrations ==="
+            # Check database connection first
+            php artisan db:show || echo "WARNING: db:show failed, but continuing..."
+            echo ""
+            echo "=== Running migrations ==="
+            php artisan migrate --force || {
+              echo "ERROR: Migration failed!"
+              echo "Checking migration status:"
+              php artisan migrate:status || true
+              exit 1
+            }
+            echo "✓ Migrations completed successfully"
+            echo ""
+            echo "=== Migration status ==="
+            php artisan migrate:status || echo "WARNING: Could not show migration status"
+
       - name: Clear Laravel Caches
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
         uses: appleboy/ssh-action@v1.0.3

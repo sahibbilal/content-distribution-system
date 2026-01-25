@@ -5,6 +5,23 @@ use Illuminate\Support\Facades\DB;
 
 // Simple test route to verify Laravel is working
 Route::get('/test-laravel', function () {
+    $dbConnected = false;
+    $dbError = null;
+    $tables = [];
+    
+    try {
+        DB::connection()->getPdo();
+        $dbConnected = true;
+        // Get list of tables
+        $tables = DB::select('SHOW TABLES');
+        $tableName = 'Tables_in_' . config('database.connections.mysql.database');
+        $tables = array_map(function($table) use ($tableName) {
+            return $table->$tableName;
+        }, $tables);
+    } catch (\Exception $e) {
+        $dbError = $e->getMessage();
+    }
+    
     return response()->json([
         'status' => 'success',
         'message' => 'Laravel is working correctly!',
@@ -15,14 +32,11 @@ Route::get('/test-laravel', function () {
         'environment' => config('app.env'),
         'app_name' => config('app.name'),
         'app_url' => config('app.url'),
-        'database_connected' => (function() {
-            try {
-                DB::connection()->getPdo();
-                return true;
-            } catch (\Exception $e) {
-                return false;
-            }
-        })(),
+        'database_connected' => $dbConnected,
+        'database_error' => $dbError,
+        'database_name' => config('database.connections.mysql.database'),
+        'database_tables' => $tables,
+        'table_count' => count($tables),
     ]);
 });
 
