@@ -43,8 +43,10 @@
           version    : 'v18.0'
         });
           
-        FB.AppEvents.logPageView();   
-          
+        FB.AppEvents.logPageView();
+        
+        // Parse XFBML tags after SDK is loaded
+        FB.XFBML.parse();
       };
 
       (function(d, s, id){

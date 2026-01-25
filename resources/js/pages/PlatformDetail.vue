@@ -88,17 +88,17 @@
             <!-- Facebook OAuth Login -->
             <div v-else-if="platformType === 'facebook'" class="connection-section">
                 <h3>Connect with Facebook</h3>
-                <button 
-                    @click="loginWithFacebook" 
-                    class="btn-facebook" 
-                    :disabled="linkingFacebook"
-                >
-                    <svg v-if="!linkingFacebook" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px; vertical-align: middle;">
-                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                    </svg>
-                    <span v-if="!linkingFacebook">Continue with Facebook</span>
-                    <span v-else>Connecting...</span>
-                </button>
+                <div class="facebook-login-wrapper">
+                    <fb:login-button 
+                        scope="pages_manage_posts,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,business_management"
+                        onlogin="checkLoginState();"
+                        data-size="large"
+                        data-button-type="login_with"
+                        data-layout="default"
+                        data-auto-logout-link="false"
+                        data-use-continue-as="false">
+                    </fb:login-button>
+                </div>
                 <p class="help-text">
                     Click to authorize and connect your Facebook Pages and Instagram accounts automatically. 
                     You'll be able to select which Page to connect.
@@ -425,15 +425,17 @@ export default {
             }
         };
 
-        const checkFacebookLoginState = () => {
+        // Global function for Facebook login button callback
+        const checkLoginState = () => {
             if (typeof FB !== 'undefined') {
                 FB.getLoginStatus(function(response) {
-                    handleFacebookStatusChange(response);
+                    statusChangeCallback(response);
                 });
             }
         };
 
-        const handleFacebookStatusChange = async (response) => {
+        // Global callback function for Facebook login status
+        const statusChangeCallback = async (response) => {
             console.log('Facebook login status changed:', response);
             
             if (response.status === 'connected') {
@@ -488,25 +490,11 @@ export default {
             }
         };
 
-        const loginWithFacebook = () => {
-            if (platformType !== 'facebook') return;
-            
-            if (typeof FB === 'undefined') {
-                error.value = 'Facebook SDK not loaded. Please refresh the page.';
-                return;
-            }
-            
-            linkingFacebook.value = true;
-            error.value = '';
-            success.value = '';
-
-            // Use Facebook SDK to login
-            FB.login(function(response) {
-                handleFacebookStatusChange(response);
-            }, {
-                scope: 'pages_manage_posts,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,business_management'
-            });
-        };
+        // Make functions available globally for Facebook SDK callbacks
+        if (typeof window !== 'undefined') {
+            window.checkLoginState = checkLoginState;
+            window.statusChangeCallback = statusChangeCallback;
+        }
 
         const testConnection = async () => {
             if (!hasCredentials.value) {
@@ -630,11 +618,14 @@ export default {
             
             // Check Facebook login status if on Facebook platform page
             if (platformType === 'facebook' && typeof window !== 'undefined') {
-                // Wait for Facebook SDK to be ready
+                // Wait for Facebook SDK to be ready and parse XFBML
                 const checkFB = setInterval(() => {
                     if (typeof FB !== 'undefined') {
                         clearInterval(checkFB);
-                        checkFacebookLoginState();
+                        // Parse XFBML tags (Facebook login button)
+                        FB.XFBML.parse();
+                        // Check current login status
+                        checkLoginState();
                     }
                 }, 100);
                 
@@ -660,7 +651,6 @@ export default {
             hasCredentials,
             loginWithLinkedIn,
             loginWithTikTok,
-            loginWithFacebook,
             testConnection,
             handleConnect,
             handleManualConnect,
@@ -828,27 +818,14 @@ export default {
     cursor: not-allowed;
 }
 
-.btn-facebook {
-    width: 100%;
-    padding: 0.75rem 1.5rem;
-    background-color: #1877F2;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s;
+.facebook-login-wrapper {
     margin-bottom: 1rem;
+    display: flex;
+    justify-content: center;
 }
 
-.btn-facebook:hover:not(:disabled) {
-    background-color: #166FE5;
-}
-
-.btn-facebook:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+.facebook-login-wrapper iframe {
+    max-width: 100%;
 }
 
 .help-text {
