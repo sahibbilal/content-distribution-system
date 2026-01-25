@@ -1,0 +1,22 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # If document root is NOT set to public directory, redirect static assets to public
+    # This handles cases where the web server root is the Laravel root, not public/
+    
+    # Serve files from public directory if they exist there
+    RewriteCond %{REQUEST_URI} ^/(build|storage|css|js|images|fonts)/
+    RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
+    RewriteRule ^(.*)$ /public/$1 [L]
+    
+    # Serve index.php from public directory
+    RewriteCond %{REQUEST_URI} ^/$
+    RewriteCond %{DOCUMENT_ROOT}/public/index.php -f
+    RewriteRule ^$ /public/index.php [L]
+    
+    # Redirect all other requests to public directory (Laravel routing)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{DOCUMENT_ROOT}/public/index.php -f
+    RewriteRule ^(.*)$ /public/index.php [L]
+</IfModule>
