@@ -157,7 +157,7 @@ jobs:
             fi
             echo "✓ Composer dependencies are ready"
 
-      - name: Verify Build Files Deployment
+      - name: Clear Laravel Caches
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -169,52 +169,12 @@ jobs:
           script: |
             DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
             cd "$DEPLOY_PATH" || exit 1
-            echo "=== Verifying Build Files Deployment ==="
-            echo "Current directory: $(pwd)"
-            echo ""
-            echo "=== Checking public/build directory ==="
-            if [ -d "public/build" ]; then
-              echo "✓ public/build directory exists"
-              echo "Contents of public/build:"
-              ls -la public/build/ | head -20
-              echo ""
-              if [ -f "public/build/manifest.json" ]; then
-                echo "✓ manifest.json found"
-                echo "Manifest.json content (first 30 lines):"
-                head -30 public/build/manifest.json
-              else
-                echo "ERROR: manifest.json NOT found in public/build!"
-                exit 1
-              fi
-              echo ""
-              if [ -d "public/build/assets" ]; then
-                echo "✓ assets directory exists"
-                echo "JS/CSS files in assets:"
-                ls -la public/build/assets/ | head -10
-              else
-                echo "WARNING: assets directory not found"
-              fi
-            else
-              echo "ERROR: public/build directory NOT found!"
-              echo "Available directories in public:"
-              ls -la public/ | head -10
-              exit 1
-            fi
-            echo ""
-            echo "=== Ensuring build directory .htaccess ==="
-            mkdir -p public/build
-            echo "# Allow direct access to all files in build directory" > public/build/.htaccess
-            echo "<IfModule mod_rewrite.c>" >> public/build/.htaccess
-            echo "    RewriteEngine Off" >> public/build/.htaccess
-            echo "</IfModule>" >> public/build/.htaccess
-            echo "" >> public/build/.htaccess
-            echo "# Set proper MIME types" >> public/build/.htaccess
-            echo "<IfModule mod_mime.c>" >> public/build/.htaccess
-            echo "    AddType application/javascript js mjs" >> public/build/.htaccess
-            echo "    AddType text/css css" >> public/build/.htaccess
-            echo "    AddType application/json json map" >> public/build/.htaccess
-            echo "</IfModule>" >> public/build/.htaccess
-            echo "✓ Build directory .htaccess created"
+            echo "=== Clearing Laravel caches ==="
+            # Clear view cache to ensure fresh Vite tags
+            php artisan view:clear || echo "WARNING: view:clear failed"
+            php artisan config:clear || echo "WARNING: config:clear failed"
+            php artisan cache:clear || echo "WARNING: cache:clear failed"
+            echo "✓ Caches cleared"
 
       - name: Restart PHP-FPM (if needed)
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.RESTART_PHP_FPM_DEV == 'true' }}

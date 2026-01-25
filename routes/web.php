@@ -43,6 +43,46 @@ Route::get('/test-build-files', function () {
     ]);
 });
 
+// Diagnostic route to see what HTML is generated
+Route::get('/test-vite-output', function () {
+    try {
+        ob_start();
+        $viteOutput = '';
+        // Capture what @vite() would output
+        $manifestPath = public_path('build/manifest.json');
+        if (file_exists($manifestPath)) {
+            $manifest = json_decode(file_get_contents($manifestPath), true);
+            if (isset($manifest['resources/js/app.js'])) {
+                $jsFile = $manifest['resources/js/app.js']['file'];
+                $cssFiles = $manifest['resources/js/app.js']['css'] ?? [];
+                
+                $viteOutput .= '<!-- Vite Assets -->' . "\n";
+                foreach ($cssFiles as $css) {
+                    $viteOutput .= '<link rel="stylesheet" href="' . asset('build/' . $css) . '">' . "\n";
+                }
+                $viteOutput .= '<script type="module" src="' . asset('build/' . $jsFile) . '"></script>' . "\n";
+            }
+        }
+        ob_end_clean();
+        
+        return response()->json([
+            'vite_helper_output' => $viteOutput,
+            'asset_urls' => [
+                'js' => asset('build/assets/app-Dopveo1y.js'),
+                'css' => asset('build/assets/app-CgSQIh2N.css'),
+                'manifest' => asset('build/manifest.json'),
+            ],
+            'app_url' => config('app.url'),
+            'asset_function_test' => asset('build/test'),
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ], 500);
+    }
+});
+
 // OAuth callbacks (needs session middleware)
 Route::get('/api/platforms/linkedin/oauth/callback', [\App\Http\Controllers\LinkedInOAuthController::class, 'callback']);
 Route::get('/api/platforms/tiktok/oauth/callback', [\App\Http\Controllers\TikTokOAuthController::class, 'callback']);
