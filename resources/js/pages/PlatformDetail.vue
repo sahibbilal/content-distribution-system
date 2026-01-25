@@ -88,17 +88,7 @@
             <!-- Facebook OAuth Login -->
             <div v-else-if="platformType === 'facebook'" class="connection-section">
                 <h3>Connect with Facebook</h3>
-                <div class="facebook-login-wrapper">
-                    <fb:login-button 
-                        scope="pages_manage_posts,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,business_management"
-                        onlogin="checkLoginState();"
-                        data-size="large"
-                        data-button-type="login_with"
-                        data-layout="default"
-                        data-auto-logout-link="false"
-                        data-use-continue-as="false">
-                    </fb:login-button>
-                </div>
+                <div class="facebook-login-wrapper" id="fb-login-button-container"></div>
                 <p class="help-text">
                     Click to authorize and connect your Facebook Pages and Instagram accounts automatically. 
                     You'll be able to select which Page to connect.
@@ -314,7 +304,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -618,12 +608,32 @@ export default {
             
             // Check Facebook login status if on Facebook platform page
             if (platformType === 'facebook' && typeof window !== 'undefined') {
-                // Wait for Facebook SDK to be ready and parse XFBML
+                // Wait for Facebook SDK to be ready and render login button
                 const checkFB = setInterval(() => {
                     if (typeof FB !== 'undefined') {
                         clearInterval(checkFB);
-                        // Parse XFBML tags (Facebook login button)
-                        FB.XFBML.parse();
+                        
+                        // Use nextTick to ensure DOM is ready
+                        nextTick(() => {
+                            const container = document.getElementById('fb-login-button-container');
+                            if (container && !container.querySelector('iframe')) {
+                                // Create the XFBML button element
+                                container.innerHTML = `
+                                    <fb:login-button 
+                                        scope="pages_manage_posts,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,business_management"
+                                        onlogin="checkLoginState();"
+                                        data-size="large"
+                                        data-button-type="login_with"
+                                        data-layout="default"
+                                        data-auto-logout-link="false"
+                                        data-use-continue-as="false">
+                                    </fb:login-button>
+                                `;
+                                // Parse XFBML tags (Facebook login button)
+                                FB.XFBML.parse(container);
+                            }
+                        });
+                        
                         // Check current login status
                         checkLoginState();
                     }
