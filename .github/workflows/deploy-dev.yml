@@ -22,6 +22,8 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Build Vue.js frontend locally (Hostinger doesn't support Node.js)
+      # The built assets (public/build/) will be deployed to the server
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -80,6 +82,11 @@ jobs:
             .git*
             .DS_Store
             Thumbs.db
+            resources/js
+            resources/css
+            package.json
+            package-lock.json
+            vite.config.js
 
       - name: Verify Deployment
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
@@ -198,58 +205,6 @@ jobs:
             fi
             echo "=== Composer install completed successfully ==="
 
-      - name: Install Node Dependencies and Build Assets
-        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ vars.SSH_HOST_DEV }}
-          username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          password: ${{ secrets.SSH_PASSWORD_DEV }}
-          port: ${{ vars.SSH_PORT_DEV || 22 }}
-          script: |
-            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
-            echo "=== Changing to deployment directory ==="
-            echo "Deployment path: $DEPLOY_PATH"
-            cd "$DEPLOY_PATH" || {
-              echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
-              exit 1
-            }
-            echo "=== Current directory after cd ==="
-            pwd
-            echo "=== Full absolute path ==="
-            echo "$(pwd)"
-            echo "=== Directory contents ==="
-            ls -la | head -20
-            echo "=== Checking for Node.js and npm ==="
-            if ! command -v node &> /dev/null; then
-              echo "WARNING: Node.js is not installed or not in PATH"
-              echo "Checking common locations..."
-              if [ -f /usr/bin/node ]; then
-                export PATH="/usr/bin:$PATH"
-              elif [ -f /usr/local/bin/node ]; then
-                export PATH="/usr/local/bin:$PATH"
-              elif [ -f ~/.nvm/nvm.sh ]; then
-                source ~/.nvm/nvm.sh
-              fi
-            fi
-            if ! command -v npm &> /dev/null; then
-              echo "ERROR: npm is not installed or not in PATH"
-              echo "Node.js/npm is required to build frontend assets."
-              echo "Please install Node.js on your server or build assets locally before deployment."
-              echo "Current PATH: $PATH"
-              echo "Skipping npm build step..."
-              exit 0
-            fi
-            echo "Node version: $(node --version)"
-            echo "NPM version: $(npm --version)"
-            echo "=== Checking package.json ==="
-            if [ ! -f package.json ]; then
-              echo "WARNING: package.json not found, skipping npm build"
-              exit 0
-            fi
-            echo "=== Skipping npm build (already built locally) ==="
-            echo "Frontend assets were built in GitHub Actions before deployment"
 
       - name: Run Laravel Setup Commands
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
