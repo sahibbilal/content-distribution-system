@@ -6,7 +6,6 @@ use App\Services\Platforms\FacebookService;
 use App\Services\Platforms\LinkedInService;
 use App\Services\Platforms\YouTubeService;
 use App\Services\Platforms\TikTokService;
-use App\Services\Platforms\KaggleService;
 
 class PlatformServiceFactory
 {
@@ -17,7 +16,6 @@ class PlatformServiceFactory
             'linkedin' => new LinkedInService(),
             'youtube' => new YouTubeService(),
             'tiktok' => new TikTokService(),
-            'kaggle' => new KaggleService(),
             default => throw new \InvalidArgumentException("Unsupported platform: {$platformType}"),
         };
     }

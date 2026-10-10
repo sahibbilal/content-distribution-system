@@ -12,7 +12,7 @@ return new class extends Migration
             Schema::create('platforms', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained()->onDelete('cascade');
-                $table->enum('platform_type', ['facebook', 'linkedin', 'youtube', 'tiktok', 'kaggle']);
+                $table->enum('platform_type', ['facebook', 'linkedin', 'youtube', 'tiktok']);
                 $table->text('credentials')->nullable(); // Encrypted JSON credentials
                 $table->boolean('is_active')->default(true);
                 $table->timestamps();

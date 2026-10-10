@@ -4,7 +4,7 @@ A comprehensive web application that enables posting content (text, images, vide
 
 ## Features
 
-- **Multi-Platform Posting**: Post to Facebook, LinkedIn, YouTube, TikTok, and Kaggle simultaneously
+- **Multi-Platform Posting**: Post to Facebook, LinkedIn, YouTube, and TikTok simultaneously
 - **Content Types**: Support for text posts, images, videos, and datasets
 - **Scheduled Posting**: Schedule posts for future dates/times using Laravel Queues
 - **Platform Management**: Connect and manage multiple platform accounts
@@ -274,24 +274,6 @@ ddev npm <command>
 4. In Settings page, enter:
    - `access_token`: Marketing API access token
    - `advertiser_id`: Your advertiser ID
-
-### Kaggle
-
-1. Go to [Kaggle Account Settings](https://www.kaggle.com/settings)
-2. Scroll to API section and click "Create New API Token"
-3. This will download a `kaggle.json` file
-4. Open the file and extract:
-   - `username`: Your Kaggle username
-   - `key`: Your Kaggle API token
-5. In Settings page, enter:
-   - `KAGGLE_USERNAME`: Your Kaggle username
-   - `KAGGLE_API_TOKEN`: Your Kaggle API token (the "key" from kaggle.json)
-
-**Note:** For automatic dataset uploads, you can optionally install Kaggle CLI:
-```bash
-pip install kaggle
-```
-If Kaggle CLI is not available, the system will provide instructions for manual upload via the Kaggle website.
 
 ## API Endpoints
 

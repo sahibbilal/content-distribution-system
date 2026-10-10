@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -15,7 +17,7 @@ class AuthController extends Controller
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'email' => 'required|string|email|max:255|unique:users',
-                'password' => 'required|string|min:8|confirmed',
+                'password' => ['required', 'string', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
             ]);
 
             $user = User::create([
@@ -24,11 +26,20 @@ class AuthController extends Controller
                 'password' => Hash::make($validated['password']),
             ]);
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $emailSent = true;
+            try {
+                $user->sendEmailVerificationNotification();
+            } catch (\Throwable $e) {
+                // The account exists; the user can request another email from the login page.
+                report($e);
+                $emailSent = false;
+            }
 
             return response()->json([
-                'user' => $user,
-                'token' => $token,
+                'message' => $emailSent
+                    ? 'Account created. Check your email to verify your address before logging in.'
+                    : 'Account created, but the verification email could not be sent. Use "Resend verification email" on the login page.',
+                'email_sent' => $emailSent,
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -57,11 +68,53 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        if (!$user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Please verify your email address before logging in.',
+                'needs_verification' => true,
+            ], 403);
+        }
+
+        $expiresAt = $request->boolean('remember') ? now()->addDays(30) : now()->addDay();
+        $token = $user->createToken('auth_token', ['*'], $expiresAt)->plainTextToken;
 
         return response()->json([
             'user' => $user,
             'token' => $token,
+        ]);
+    }
+
+    public function verifyEmail(Request $request, $id, $hash)
+    {
+        $user = User::find($id);
+
+        if (!$request->hasValidSignature()
+            || !$user
+            || !hash_equals(sha1($user->getEmailForVerification()), (string) $hash)) {
+            return redirect('/login?verify_error=1');
+        }
+
+        if (!$user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
+            event(new Verified($user));
+        }
+
+        return redirect('/login?verified=1');
+    }
+
+    public function resendVerification(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $user = User::where('email', $request->email)->first();
+
+        if ($user && !$user->hasVerifiedEmail()) {
+            $user->sendEmailVerificationNotification();
+        }
+
+        // Same response either way so this can't be used to discover registered emails.
+        return response()->json([
+            'message' => 'If that account exists and is not verified, a new verification email has been sent.',
         ]);
     }
 

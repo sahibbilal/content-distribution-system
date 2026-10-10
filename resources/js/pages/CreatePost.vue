@@ -30,10 +30,6 @@
                     multiple 
                     :accept="getFileAcceptTypes()" 
                 />
-                <small v-if="hasKagglePlatform" style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.25rem;">
-                    💡 Kaggle accepts: CSV, JSON, Jupyter notebooks (.ipynb), ZIP, Parquet, Excel, and other dataset formats
-                    <span v-if="!isKaggleSelected" style="color: #856404;"> (Select Kaggle platform to upload datasets)</span>
-                </small>
                 <div v-if="uploadedMedia.length > 0" class="uploaded-media">
                     <div v-for="media in uploadedMedia" :key="media.id" class="media-item">
                         <span>{{ media.filename }}</span>
@@ -61,7 +57,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
@@ -94,23 +90,8 @@ export default {
             }
         };
 
-        const isKaggleSelected = computed(() => {
-            const selectedPlatforms = platforms.value.filter(p => form.value.platforms.includes(p.id));
-            return selectedPlatforms.some(p => p.platform_type === 'kaggle');
-        });
-
-        const hasKagglePlatform = computed(() => {
-            return platforms.value.some(p => p.platform_type === 'kaggle');
-        });
-
         const getFileAcceptTypes = () => {
-            // If Kaggle platform is available, always allow Kaggle file types
-            // This allows users to upload Kaggle files even if they haven't selected Kaggle yet
-            if (hasKagglePlatform.value) {
-                // Kaggle accepts various dataset file types
-                return '.csv,.json,.jsonl,.ipynb,.zip,.tar,.gz,.parquet,.xlsx,.xls,.tsv,.txt,.sql,.db,.sqlite,.h5,.hdf5,.pkl,.pickle,.feather,.arrow,.avro,.orc,.xml,.html,image/*,video/*';
-            }
-            // Default: images, videos, and common dataset formats
+            // Images, videos, and common dataset formats
             return 'image/*,video/*,.csv,.json,.zip,.xlsx,.xls';
         };
 
@@ -120,21 +101,10 @@ export default {
             error.value = '';
 
             try {
-                // Determine platform for file validation
-                // Check if Kaggle is selected in the platforms
-                const selectedPlatforms = platforms.value.filter(p => form.value.platforms.includes(p.id));
-                const hasKaggle = selectedPlatforms.some(p => p.platform_type === 'kaggle');
-                const platformType = hasKaggle ? 'kaggle' : null;
-
                 for (const file of files) {
                     const formData = new FormData();
                     formData.append('file', file);
-                    
-                    // Pass platform info for file type validation if Kaggle is selected
-                    if (platformType) {
-                        formData.append('platform', platformType);
-                    }
-                    
+
                     const response = await axios.post('/media/upload', formData, {
                         // Don't set Content-Type - let axios/browser set it automatically with boundary
                         headers: {
@@ -230,7 +200,7 @@ export default {
                 
                 // Only redirect on complete success
                 setTimeout(() => {
-                    router.push('/');
+                    router.push('/dashboard');
                 }, 2000);
             } catch (err) {
                 // Handle HTTP errors (422, 500, etc.)
@@ -266,8 +236,6 @@ export default {
             loadingPlatforms,
             error,
             success,
-            isKaggleSelected,
-            hasKagglePlatform,
             getFileAcceptTypes,
             handleFileUpload,
             removeMedia,

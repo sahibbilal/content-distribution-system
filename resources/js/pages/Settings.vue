@@ -32,7 +32,6 @@
                         <option value="linkedin">LinkedIn</option>
                         <option value="youtube">YouTube</option>
                         <option value="tiktok">TikTok</option>
-                        <option value="kaggle">Kaggle</option>
                     </select>
                 </div>
 
@@ -91,30 +90,6 @@
                     <div class="form-group">
                         <label>Advertiser ID</label>
                         <input v-model="connectForm.credentials.advertiser_id" type="text" required />
-                    </div>
-                </div>
-
-                <div v-if="connectForm.platform_type === 'kaggle'" class="platform-credentials">
-                    <div class="form-group">
-                        <label>Kaggle Username (KAGGLE_USERNAME)</label>
-                        <input v-model="connectForm.credentials.KAGGLE_USERNAME" type="text" required placeholder="your-kaggle-username" />
-                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.25rem;">Your Kaggle username</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Kaggle API Token (KAGGLE_API_TOKEN)</label>
-                        <input v-model="connectForm.credentials.KAGGLE_API_TOKEN" type="password" required placeholder="Your Kaggle API token" />
-                        <small style="color: #666; font-size: 0.85rem; display: block; margin-top: 0.25rem;">
-                            Get this from <a href="https://www.kaggle.com/settings" target="_blank" style="color: #667eea;">Kaggle Settings</a> (Create New API Token)
-                        </small>
-                    </div>
-                    <div style="padding: 1rem; background: #e3f2fd; border-radius: 4px; margin-top: 1rem; border-left: 4px solid #2196f3;">
-                        <strong style="display: block; margin-bottom: 0.5rem; color: #1976d2;">📊 Dataset Upload Instructions:</strong>
-                        <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0; color: #555;">
-                            <li>Enter your Kaggle username and API token above</li>
-                            <li>When creating a post, upload a dataset file (CSV, JSON, ZIP, etc.)</li>
-                            <li>The dataset will be uploaded to your Kaggle account</li>
-                            <li>Make sure your API token has dataset upload permissions</li>
-                        </ul>
                     </div>
                 </div>
 
@@ -252,8 +227,6 @@ export default {
                     return !!creds.credentials;
                 case 'tiktok':
                     return !!(creds.access_token && creds.advertiser_id);
-                case 'kaggle':
-                    return !!(creds.KAGGLE_USERNAME && creds.KAGGLE_API_TOKEN);
                 default:
                     return false;
             }
