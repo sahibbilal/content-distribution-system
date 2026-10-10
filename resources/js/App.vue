@@ -27,6 +27,10 @@
                         <span class="nav-icon">⚙️</span>
                         <span class="nav-text">Settings</span>
                     </router-link>
+                    <router-link v-if="isAdmin" to="/admin" class="nav-item" @click="closeSidebarMobile">
+                        <span class="nav-icon">🛠️</span>
+                        <span class="nav-text">Admin</span>
+                    </router-link>
                     <div class="nav-divider"></div>
                     <button @click="logout" class="nav-item nav-item-button">
                         <span class="nav-icon">🚪</span>
@@ -62,9 +66,30 @@ export default {
     setup() {
         const router = useRouter();
         // localStorage isn't reactive, so re-check the token after every navigation
+        const readIsAdmin = () => {
+            try {
+                return !!JSON.parse(localStorage.getItem('user') || 'null')?.is_admin;
+            } catch (e) {
+                return false;
+            }
+        };
         const isAuthenticated = ref(!!localStorage.getItem('token'));
+        const isAdmin = ref(readIsAdmin());
         router.afterEach(() => {
             isAuthenticated.value = !!localStorage.getItem('token');
+            isAdmin.value = readIsAdmin();
+        });
+
+        // Refresh the stored user so admin promotions/demotions are picked up
+        onMounted(async () => {
+            if (!localStorage.getItem('token')) return;
+            try {
+                const { data } = await axios.get('/auth/me');
+                localStorage.setItem('user', JSON.stringify(data));
+                isAdmin.value = !!data.is_admin;
+            } catch (e) {
+                // a 401 is handled globally by the axios interceptor
+            }
         });
         const sidebarCollapsed = ref(false);
 
@@ -86,6 +111,7 @@ export default {
                 console.error('Logout error:', error);
             } finally {
                 localStorage.removeItem('token');
+                localStorage.removeItem('user');
                 delete axios.defaults.headers.common['Authorization'];
                 router.push('/login');
             }
@@ -111,6 +137,7 @@ export default {
 
         return {
             isAuthenticated,
+            isAdmin,
             sidebarCollapsed,
             toggleSidebar,
             closeSidebarMobile,

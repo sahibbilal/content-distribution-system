@@ -31,11 +31,10 @@ class TikTokOAuthController extends Controller
         session(['tiktok_oauth_state' => $state]);
         session(['tiktok_oauth_user_id' => $request->user()->id]);
 
-        // Required scopes for video upload and publishing
+        // Sandbox apps only have video.upload (drafts); production uses Direct Post
         $scopes = [
             'user.info.basic',      // Basic user info
-            'video.upload',         // Upload videos
-            'video.publish',        // Publish videos directly
+            env('TIKTOK_MODE', 'production') === 'sandbox' ? 'video.upload' : 'video.publish',
         ];
 
         $authUrl = 'https://www.tiktok.com/v2/auth/authorize?' . http_build_query([

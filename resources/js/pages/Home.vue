@@ -9,12 +9,10 @@
             </nav>
         </header>
 
+        <template v-if="content">
         <section class="hero">
-            <h1>Write once. Publish everywhere.</h1>
-            <p>
-                Content Distribution System lets you post text, images and videos
-                to Facebook, LinkedIn, YouTube and TikTok from one place, now or on a schedule.
-            </p>
+            <h1>{{ content.hero.title }}</h1>
+            <p>{{ content.hero.subtitle }}</p>
             <div class="hero-actions">
                 <router-link to="/login" class="btn btn-light">Login</router-link>
                 <router-link to="/register" class="btn btn-outline">Create account</router-link>
@@ -24,7 +22,7 @@
         <section class="section">
             <h2>What you can do</h2>
             <div class="grid">
-                <div v-for="f in features" :key="f.title" class="card">
+                <div v-for="f in content.features" :key="f.title" class="card">
                     <div class="card-head">
                         <span class="icon">{{ f.icon }}</span>
                         <h3>{{ f.title }}</h3>
@@ -37,7 +35,7 @@
         <section class="section section-alt">
             <h2>Supported platforms</h2>
             <div class="chips">
-                <span v-for="p in platforms" :key="p" class="chip">{{ p }}</span>
+                <span v-for="p in content.platforms" :key="p" class="chip">{{ p }}</span>
             </div>
         </section>
 
@@ -45,7 +43,7 @@
             <h2>Pricing</h2>
             <p class="section-sub">Simple monthly plans. Both let you post to all connected platforms.</p>
             <div class="plans">
-                <div v-for="plan in plans" :key="plan.name" class="plan" :class="{ featured: plan.featured }">
+                <div v-for="plan in content.plans" :key="plan.name" class="plan" :class="{ featured: plan.featured }">
                     <h3>{{ plan.name }}</h3>
                     <div class="price">Rs {{ plan.price }}<span> / month</span></div>
                     <ul>
@@ -60,16 +58,16 @@
                     <li><router-link to="/register">Create your account</router-link> and verify your email.</li>
                     <li>Pay for the plan you want using one of the methods below.</li>
                     <li>Email your payment proof and the email you registered with to
-                        <a :href="'mailto:' + contactEmail">{{ contactEmail }}</a>. We activate your plan once the payment is confirmed.</li>
+                        <a :href="'mailto:' + content.contact_email">{{ content.contact_email }}</a>. We activate your plan once the payment is confirmed.</li>
                 </ol>
-                <div v-if="paymentMethods.length" class="methods">
-                    <div v-for="m in paymentMethods" :key="m.name" class="method">
+                <div v-if="content.payment_methods.length" class="methods">
+                    <div v-for="m in content.payment_methods" :key="m.name" class="method">
                         <strong>{{ m.name }}</strong>
-                        <div v-for="[label, value] in m.details" :key="label">{{ label }}: {{ value }}</div>
+                        <div v-for="d in m.details" :key="d.label">{{ d.label }}: {{ d.value }}</div>
                     </div>
                 </div>
                 <p v-else class="section-sub">
-                    Contact <a :href="'mailto:' + contactEmail">{{ contactEmail }}</a> for payment details.
+                    Contact <a :href="'mailto:' + content.contact_email">{{ content.contact_email }}</a> for payment details.
                 </p>
             </div>
         </section>
@@ -84,6 +82,7 @@
             </ol>
             <router-link to="/login" class="btn btn-primary">Login to get started</router-link>
         </section>
+        </template>
 
         <footer class="home-footer">
             &copy; {{ year }} Content Distribution System
@@ -94,45 +93,16 @@
 </template>
 
 <script>
+import { onMounted } from 'vue';
 import BrandLogo from '../components/BrandLogo.vue';
-import { contactEmail, paymentMethods } from '../config.js';
+import { siteContent, loadSiteContent } from '../siteContent.js';
 
 export default {
     components: { BrandLogo },
     name: 'Home',
     setup() {
-        const features = [
-            { icon: '🔗', title: 'Multi-platform posting', text: 'Send one post to several platforms at once instead of repeating yourself.' },
-            { icon: '🖼️', title: 'Text, images, video', text: 'Attach media with each platform receiving the format it supports.' },
-            { icon: '⏰', title: 'Scheduled posting', text: 'Pick a date and time. Scheduled posts are published automatically by a background queue.' },
-            { icon: '🔌', title: 'Platform management', text: 'Connect, test and disconnect your social accounts from a single page.' },
-            { icon: '📜', title: 'Post history', text: 'See what was published, where, and whether each platform succeeded or failed.' },
-            { icon: '🔒', title: 'Secure by design', text: 'Token-based authentication, and platform credentials are stored encrypted.' },
-        ];
-        const platforms = ['Facebook', 'LinkedIn', 'YouTube', 'TikTok'];
-        const plans = [
-            {
-                name: 'Standard',
-                price: '500',
-                features: [
-                    'Post to all connected platforms',
-                    'Facebook, LinkedIn, YouTube and TikTok',
-                    'Text, image and video posts',
-                    'Scheduled posting and post history',
-                    'You write your own content',
-                ],
-            },
-            {
-                name: 'Standard + AI',
-                price: '2,000',
-                featured: true,
-                features: [
-                    'Everything in Standard',
-                    'AI-generated content (coming soon)',
-                ],
-            },
-        ];
-        return { features, platforms, plans, contactEmail, paymentMethods, year: new Date().getFullYear() };
+        onMounted(() => loadSiteContent().catch(() => {}));
+        return { content: siteContent, year: new Date().getFullYear() };
     },
 };
 </script>

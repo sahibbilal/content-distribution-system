@@ -5,6 +5,7 @@ use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PlatformController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ScheduleController;
+use App\Http\Controllers\SiteContentController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function () {
@@ -17,6 +18,13 @@ Route::prefix('auth')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
     });
+});
+
+// Public site content (home page, legal pages)
+Route::get('/site-content', [SiteContentController::class, 'show']);
+
+Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+    Route::put('/admin/site-content', [SiteContentController::class, 'update']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {

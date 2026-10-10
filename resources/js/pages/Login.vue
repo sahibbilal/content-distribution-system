@@ -73,6 +73,7 @@ export default {
             try {
                 const response = await axios.post('/auth/login', form.value);
                 localStorage.setItem('token', response.data.token);
+                localStorage.setItem('user', JSON.stringify(response.data.user));
                 sessionStorage.setItem('session_active', '1');
                 if (form.value.remember) {
                     localStorage.setItem('remember', '1');

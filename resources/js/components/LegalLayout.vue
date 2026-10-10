@@ -17,7 +17,8 @@
 
 <script>
 import BrandLogo from './BrandLogo.vue';
-import { contactEmail } from '../config.js';
+import { computed, onMounted } from 'vue';
+import { siteContent, loadSiteContent } from '../siteContent.js';
 
 export default {
     components: { BrandLogo },
@@ -27,7 +28,8 @@ export default {
         updated: { type: String, default: 'October 11, 2026' },
     },
     setup() {
-        // Contact address comes from config.js
+        onMounted(() => loadSiteContent().catch(() => {}));
+        const contactEmail = computed(() => siteContent.value?.contact_email || '');
         return { contactEmail };
     },
 };
