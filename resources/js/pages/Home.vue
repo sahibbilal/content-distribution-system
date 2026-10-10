@@ -1,7 +1,7 @@
 <template>
     <div class="home">
         <header class="home-nav">
-            <span class="home-brand">Content Distribution</span>
+            <BrandLogo :size="44" pill />
             <nav>
                 <router-link to="/login" class="link">Login</router-link>
                 <router-link to="/register" class="btn btn-light">Get started</router-link>
@@ -60,7 +60,10 @@
 </template>
 
 <script>
+import BrandLogo from '../components/BrandLogo.vue';
+
 export default {
+    components: { BrandLogo },
     name: 'Home',
     setup() {
         const features = [
@@ -83,7 +86,6 @@ export default {
     display: flex; justify-content: space-between; align-items: center;
     padding: 1rem 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff;
 }
-.home-brand { font-weight: bold; font-size: 1.25rem; }
 .home-nav nav { display: flex; align-items: center; gap: 1rem; }
 .link { color: #fff; text-decoration: none; }
 .hero {

@@ -1,6 +1,7 @@
 <template>
     <div class="auth-container">
         <div class="auth-card">
+            <div class="auth-logo"><BrandLogo :size="72" /></div>
             <h1>Login</h1>
             <div v-if="info" class="notice-message">{{ info }}</div>
             <form @submit.prevent="handleLogin">
@@ -35,10 +36,11 @@ import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import PasswordInput from '../components/PasswordInput.vue';
+import BrandLogo from '../components/BrandLogo.vue';
 
 export default {
     name: 'Login',
-    components: { PasswordInput },
+    components: { PasswordInput, BrandLogo },
     setup() {
         const router = useRouter();
         const route = useRoute();
@@ -125,6 +127,11 @@ export default {
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     width: 100%;
     max-width: 400px;
+}
+
+.auth-logo {
+    text-align: center;
+    margin-bottom: 1.25rem;
 }
 
 .auth-card h1 {

@@ -1,7 +1,7 @@
 <template>
     <div class="legal">
         <header class="legal-nav">
-            <router-link to="/" class="legal-brand">Content Distribution</router-link>
+            <BrandLogo :size="44" pill />
         </header>
         <main class="legal-body">
             <h1>{{ title }}</h1>
@@ -16,7 +16,10 @@
 </template>
 
 <script>
+import BrandLogo from './BrandLogo.vue';
+
 export default {
+    components: { BrandLogo },
     name: 'LegalLayout',
     props: {
         title: { type: String, required: true },
@@ -32,7 +35,6 @@ export default {
 <style scoped>
 .legal { min-height: 100vh; background: #fff; color: #2c3e50; }
 .legal-nav { padding: 1rem 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-.legal-brand { color: #fff; font-weight: bold; font-size: 1.25rem; text-decoration: none; }
 .legal-body { max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem 3rem; line-height: 1.7; }
 .legal-body h1 { margin-bottom: 0.25rem; }
 .updated { color: #888; margin-bottom: 2rem; }

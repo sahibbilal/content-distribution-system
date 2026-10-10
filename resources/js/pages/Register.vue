@@ -1,6 +1,7 @@
 <template>
     <div class="auth-container">
         <div class="auth-card">
+            <div class="auth-logo"><BrandLogo :size="72" /></div>
             <template v-if="registered">
                 <h1>Check your email</h1>
                 <p class="info-text">
@@ -66,10 +67,11 @@
 import { ref, computed } from 'vue';
 import axios from 'axios';
 import PasswordInput from '../components/PasswordInput.vue';
+import BrandLogo from '../components/BrandLogo.vue';
 
 export default {
     name: 'Register',
-    components: { PasswordInput },
+    components: { PasswordInput, BrandLogo },
     setup() {
         const form = ref({
             name: '',
@@ -173,6 +175,11 @@ export default {
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     width: 100%;
     max-width: 400px;
+}
+
+.auth-logo {
+    text-align: center;
+    margin-bottom: 1.25rem;
 }
 
 .auth-card h1 {

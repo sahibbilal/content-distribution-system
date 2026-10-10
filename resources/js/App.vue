@@ -4,7 +4,7 @@
             <!-- Sidebar -->
             <aside class="sidebar" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
                 <div class="sidebar-header">
-                    <h2 class="sidebar-brand">Content Distribution</h2>
+                    <div class="sidebar-brand"><BrandLogo :size="30" pill /></div>
                     <button @click="toggleSidebar" class="sidebar-toggle" aria-label="Toggle sidebar">
                         <span v-if="!sidebarCollapsed">☰</span>
                         <span v-else>☰</span>
@@ -54,7 +54,10 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
+import BrandLogo from './components/BrandLogo.vue';
+
 export default {
+    components: { BrandLogo },
     name: 'App',
     setup() {
         const router = useRouter();
