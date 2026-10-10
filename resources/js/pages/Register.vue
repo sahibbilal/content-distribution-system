@@ -1,77 +1,81 @@
 <template>
-    <div class="auth-container">
-        <div class="auth-card">
-            <div class="auth-logo"><BrandLogo :size="72" /></div>
-            <template v-if="registered">
-                <h1>Check your email</h1>
-                <p class="info-text">
-                    We sent a verification link to <strong>{{ form.email }}</strong>.
-                    Click it to verify your address, then log in.
-                </p>
-                <div v-if="notice" class="notice-message">{{ notice }}</div>
-                <button type="button" class="btn-primary" :disabled="resending" @click="resend">
-                    {{ resending ? 'Sending...' : 'Resend verification email' }}
-                </button>
-                <p class="auth-link"><router-link to="/login">Go to login</router-link></p>
-            </template>
+    <AuthLayout :title="registered ? 'Check your email' : 'Create your account'" :subtitle="registered ? '' : 'Start publishing to all your platforms in minutes.'">
+        <template v-if="registered">
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand-600">
+                <MailCheck class="h-6 w-6" />
+            </div>
+            <p class="mt-4 text-sm leading-6 text-slate-600">
+                We sent a verification link to <strong class="text-slate-900">{{ form.email }}</strong>.
+                Click it to verify your address, then log in.
+            </p>
+            <div v-if="notice" class="alert alert-info mt-4">{{ notice }}</div>
+            <button type="button" class="btn btn-primary mt-6 w-full" :disabled="resending" @click="resend">
+                {{ resending ? 'Sending...' : 'Resend verification email' }}
+            </button>
+            <p class="mt-4 text-center text-sm">
+                <router-link to="/login" class="font-semibold text-brand-700 hover:text-brand-800">Go to login</router-link>
+            </p>
+        </template>
 
-            <template v-else>
-                <h1>Register</h1>
-                <form @submit.prevent="handleRegister">
-                    <div class="form-group">
-                        <label>Name</label>
-                        <input v-model="form.name" type="text" autocomplete="name" required />
-                    </div>
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input v-model="form.email" type="email" autocomplete="email" required />
-                    </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <PasswordInput v-model="form.password" autocomplete="new-password" />
-                        <div class="strength">
-                            <div class="strength-bar" :class="strengthClass" :style="{ width: strengthPercent + '%' }"></div>
-                        </div>
-                        <ul class="rules">
-                            <li v-for="rule in rules" :key="rule.label" :class="{ ok: rule.ok }">
-                                <span class="rule-icon">{{ rule.ok ? '✓' : '○' }}</span> {{ rule.label }}
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="form-group">
-                        <label>Confirm Password</label>
-                        <PasswordInput v-model="form.password_confirmation" name="password_confirmation" autocomplete="new-password" />
-                        <p v-if="form.password_confirmation" class="match" :class="{ ok: passwordsMatch }">
-                            {{ passwordsMatch ? '✓ Passwords match' : '✗ Passwords do not match' }}
-                        </p>
-                    </div>
-                    <button type="submit" class="btn-primary" :disabled="loading || !canSubmit">
-                        {{ loading ? 'Registering...' : 'Register' }}
-                    </button>
-                    <p class="legal-note">
-                        By registering you agree to our
-                        <router-link to="/terms" target="_blank">Terms of Service</router-link> and
-                        <router-link to="/privacy" target="_blank">Privacy Policy</router-link>.
-                    </p>
-                    <p class="auth-link">
-                        Already have an account? <router-link to="/login">Login</router-link>
-                    </p>
-                    <div v-if="error" class="error-message">{{ error }}</div>
-                </form>
-            </template>
-        </div>
-    </div>
+        <form v-else class="space-y-5" @submit.prevent="handleRegister">
+            <div>
+                <label class="label">Name</label>
+                <input v-model="form.name" type="text" autocomplete="name" class="input" required />
+            </div>
+            <div>
+                <label class="label">Email</label>
+                <input v-model="form.email" type="email" autocomplete="email" class="input" placeholder="you@example.com" required />
+            </div>
+            <div>
+                <label class="label">Password</label>
+                <PasswordInput v-model="form.password" autocomplete="new-password" />
+                <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                    <div class="h-full rounded-full transition-all duration-300"
+                        :class="{ 'bg-red-500': strengthClass === 'weak', 'bg-amber-500': strengthClass === 'medium', 'bg-emerald-500': strengthClass === 'strong' }"
+                        :style="{ width: strengthPercent + '%' }"></div>
+                </div>
+                <ul class="mt-3 grid gap-1.5 sm:grid-cols-2">
+                    <li v-for="rule in rules" :key="rule.label" class="flex items-center gap-2 text-xs" :class="rule.ok ? 'text-emerald-700' : 'text-slate-500'">
+                        <CircleCheck v-if="rule.ok" class="h-4 w-4 shrink-0" />
+                        <Circle v-else class="h-4 w-4 shrink-0" />
+                        {{ rule.label }}
+                    </li>
+                </ul>
+            </div>
+            <div>
+                <label class="label">Confirm password</label>
+                <PasswordInput v-model="form.password_confirmation" name="password_confirmation" autocomplete="new-password" />
+                <p v-if="form.password_confirmation" class="mt-1.5 text-xs font-medium" :class="passwordsMatch ? 'text-emerald-700' : 'text-red-600'">
+                    {{ passwordsMatch ? 'Passwords match' : 'Passwords do not match' }}
+                </p>
+            </div>
+            <button type="submit" class="btn btn-primary w-full" :disabled="loading || !canSubmit">
+                {{ loading ? 'Registering...' : 'Create account' }}
+            </button>
+            <div v-if="error" class="alert alert-error">{{ error }}</div>
+            <p class="text-center text-xs leading-5 text-slate-500">
+                By registering you agree to our
+                <router-link to="/terms" target="_blank" class="font-medium text-brand-700 hover:text-brand-800">Terms of Service</router-link> and
+                <router-link to="/privacy" target="_blank" class="font-medium text-brand-700 hover:text-brand-800">Privacy Policy</router-link>.
+            </p>
+            <p class="text-center text-sm text-slate-600">
+                Already have an account?
+                <router-link to="/login" class="font-semibold text-brand-700 hover:text-brand-800">Log in</router-link>
+            </p>
+        </form>
+    </AuthLayout>
 </template>
 
 <script>
 import { ref, computed } from 'vue';
 import axios from 'axios';
 import PasswordInput from '../components/PasswordInput.vue';
-import BrandLogo from '../components/BrandLogo.vue';
+import AuthLayout from '../components/AuthLayout.vue';
+import { Circle, CircleCheck, MailCheck } from 'lucide-vue-next';
 
 export default {
     name: 'Register',
-    components: { PasswordInput, BrandLogo },
+    components: { PasswordInput, AuthLayout, Circle, CircleCheck, MailCheck },
     setup() {
         const form = ref({
             name: '',
@@ -158,163 +162,3 @@ export default {
     },
 };
 </script>
-
-<style scoped>
-.auth-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.auth-card {
-    background: white;
-    padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    width: 100%;
-    max-width: 400px;
-}
-
-.auth-logo {
-    text-align: center;
-    margin-bottom: 1.25rem;
-}
-
-.auth-card h1 {
-    margin-bottom: 1.5rem;
-    text-align: center;
-    color: #333;
-}
-
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: #555;
-    font-weight: 500;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
-}
-
-.btn-primary {
-    width: 100%;
-    padding: 0.75rem;
-    background-color: #667eea;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.btn-primary:hover:not(:disabled) {
-    background-color: #5568d3;
-}
-
-.btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.auth-link {
-    text-align: center;
-    margin-top: 1rem;
-    color: #666;
-}
-
-.auth-link a {
-    color: #667eea;
-    text-decoration: none;
-}
-
-.error-message {
-    margin-top: 1rem;
-    padding: 0.75rem;
-    background-color: #fee;
-    color: #c33;
-    border-radius: 4px;
-    text-align: center;
-}
-
-.notice-message {
-    margin-bottom: 1rem;
-    padding: 0.75rem;
-    background-color: #eef3ff;
-    color: #3b4cb8;
-    border-radius: 4px;
-    text-align: center;
-}
-
-.info-text {
-    margin-bottom: 1.25rem;
-    color: #555;
-    line-height: 1.5;
-    text-align: center;
-}
-
-.strength {
-    height: 6px;
-    margin-top: 0.5rem;
-    background: #eee;
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.strength-bar {
-    height: 100%;
-    transition: width 0.2s, background-color 0.2s;
-}
-
-.strength-bar.weak { background: #e74c3c; }
-.strength-bar.medium { background: #f39c12; }
-.strength-bar.strong { background: #27ae60; }
-
-.rules {
-    list-style: none;
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
-    color: #888;
-}
-
-.rules li.ok {
-    color: #27ae60;
-}
-
-.rule-icon {
-    display: inline-block;
-    width: 1.1em;
-}
-
-.legal-note {
-    margin-top: 1rem;
-    font-size: 0.8rem;
-    color: #777;
-    text-align: center;
-}
-
-.legal-note a {
-    color: #667eea;
-}
-
-.match {
-    margin-top: 0.4rem;
-    font-size: 0.875rem;
-    color: #c0392b;
-}
-
-.match.ok {
-    color: #27ae60;
-}
-</style>

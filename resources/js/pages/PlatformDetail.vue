@@ -1,264 +1,208 @@
 <template>
-    <div class="platform-detail">
-        <div class="platform-header">
-            <button @click="goBack" class="btn-back">← Back to Platforms</button>
-            <div class="platform-title">
-                <span class="platform-icon">{{ platformInfo.icon }}</span>
-                <h1>{{ platformInfo.name }}</h1>
+    <div class="mx-auto max-w-3xl">
+        <button @click="goBack" class="btn btn-ghost -ml-3 mb-4 px-3! py-1.5!">
+            <ArrowLeft class="h-4 w-4" /> Back to platforms
+        </button>
+
+        <div class="mb-8 flex items-center gap-4">
+            <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white shadow-card ring-1 ring-slate-900/5">
+                <PlatformIcon :type="platformType" :size="32" />
+            </span>
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ platformInfo.name }}</h1>
+                <p class="mt-0.5 text-sm text-slate-600">{{ platformInfo.description }}</p>
             </div>
-            <p class="platform-description">{{ platformInfo.description }}</p>
         </div>
 
-        <div v-if="loading" class="loading">Loading...</div>
+        <div v-if="loading" class="space-y-4">
+            <div class="card h-28 animate-pulse bg-slate-100"></div>
+            <div class="card h-64 animate-pulse bg-slate-100"></div>
+        </div>
 
-        <div v-else class="platform-content">
-            <!-- Connection Status -->
-            <div class="status-card" :class="{ connected: isConnected, disconnected: !isConnected }">
-                <div class="status-header">
-                    <h3>Connection Status</h3>
-                    <span class="status-badge" :class="{ connected: isConnected, disconnected: !isConnected }">
-                        {{ isConnected ? '✓ Connected' : 'Not Connected' }}
+        <div v-else class="space-y-6">
+            <!-- Connection status -->
+            <section class="card p-5">
+                <div class="flex items-center justify-between gap-3">
+                    <h2 class="card-title">Connection status</h2>
+                    <span class="badge" :class="isConnected ? 'badge-success' : 'badge-neutral'">
+                        <span class="h-1.5 w-1.5 rounded-full" :class="isConnected ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                        {{ isConnected ? 'Connected' : 'Not connected' }}
                     </span>
                 </div>
-                <p v-if="isConnected" class="status-message">
+                <p v-if="isConnected" class="mt-2 text-sm text-slate-600">
                     Your {{ platformInfo.name }} account is connected and ready to use.
                 </p>
-                <button v-if="isConnected" type="button" class="btn-secondary" @click="testSavedConnection" :disabled="testingConnection">
-                    {{ testingConnection ? 'Testing...' : 'Test Saved Connection' }}
-                </button>
-                <p v-else class="status-message">
+                <p v-else class="mt-2 text-sm text-slate-600">
                     Connect your {{ platformInfo.name }} account to start publishing content.
                 </p>
-            </div>
+                <button v-if="isConnected" type="button" class="btn btn-secondary mt-4" @click="testSavedConnection" :disabled="testingConnection">
+                    {{ testingConnection ? 'Testing...' : 'Test saved connection' }}
+                </button>
+            </section>
 
-            <!-- LinkedIn OAuth Login -->
-            <div v-if="platformType === 'linkedin'" class="connection-section">
-                <h3>Connect with LinkedIn</h3>
-                <button 
-                    @click="loginWithLinkedIn" 
-                    class="btn-linkedin" 
-                    :disabled="linkingLinkedIn"
-                >
-                    <span v-if="!linkingLinkedIn">🔗 Login with LinkedIn</span>
+            <!-- LinkedIn -->
+            <section v-if="platformType === 'linkedin'" class="card space-y-5 p-5">
+                <div>
+                    <h2 class="card-title">Connect with LinkedIn</h2>
+                    <p class="mt-1 text-sm text-slate-500">Authorize and connect your LinkedIn account automatically.</p>
+                </div>
+                <button @click="loginWithLinkedIn" class="btn w-full bg-[#0a66c2] text-white hover:bg-[#084d92]" :disabled="linkingLinkedIn">
+                    <PlatformIcon type="linkedin" :size="18" class="rounded-sm bg-white" />
+                    <span v-if="!linkingLinkedIn">Log in with LinkedIn</span>
                     <span v-else>Connecting...</span>
                 </button>
-                <p class="help-text">
-                    Click to authorize and connect your LinkedIn account automatically.
-                </p>
 
-                <div class="divider">OR</div>
-
-                <h3>Manual Connection</h3>
-                <form @submit.prevent="handleManualConnect" class="credentials-form">
-                    <div class="form-group">
-                        <label>Access Token</label>
-                        <input 
-                            v-model="credentials.access_token" 
-                            type="text" 
-                            placeholder="Enter your LinkedIn access token"
-                        />
-                        <small>Your LinkedIn OAuth access token</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Person URN (Optional)</label>
-                        <input 
-                            v-model="credentials.person_urn" 
-                            type="text" 
-                            placeholder="urn:li:person:xxxxx"
-                        />
-                        <small>If not provided, will be fetched automatically from your profile</small>
-                    </div>
-                    <div class="form-actions">
-                        <button 
-                            type="button" 
-                            @click="testConnection" 
-                            class="btn-secondary"
-                            :disabled="testingConnection || !hasCredentials"
-                        >
-                            {{ testingConnection ? 'Testing...' : 'Test Connection' }}
-                        </button>
-                        <button 
-                            type="submit" 
-                            class="btn-primary"
-                            :disabled="!hasCredentials || connecting"
-                        >
-                            {{ connecting ? 'Connecting...' : 'Save Credentials' }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Facebook OAuth Login -->
-            <div v-else-if="platformType === 'facebook'" class="connection-section">
-                <h3>Connect with Facebook</h3>
-                <div class="facebook-login-wrapper" id="fb-login-button-container">
-                    <div v-if="!fbSDKReady" class="fb-loading">
-                        Loading Facebook login...
-                    </div>
+                <div class="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-slate-400">
+                    <span class="h-px flex-1 bg-slate-200"></span> or connect manually <span class="h-px flex-1 bg-slate-200"></span>
                 </div>
-                <p class="help-text">
-                    Click to authorize and connect your Facebook Pages and Instagram accounts automatically. 
-                    You'll be able to select which Page to connect.
-                </p>
 
-                <div class="divider">OR</div>
-
-                <h3>Manual Connection</h3>
-                <form @submit.prevent="handleManualConnect" class="credentials-form">
-                    <div class="form-group">
-                        <label>Page ID</label>
-                        <input 
-                            v-model="credentials.page_id" 
-                            type="text" 
-                            placeholder="Enter your Facebook Page ID"
-                        />
-                        <small>Your Facebook Page ID</small>
+                <form @submit.prevent="handleManualConnect" class="space-y-5">
+                    <div>
+                        <label class="label">Access token</label>
+                        <input v-model="credentials.access_token" type="text" class="input" placeholder="Enter your LinkedIn access token" />
+                        <p class="hint">Your LinkedIn OAuth access token.</p>
                     </div>
-                    <div class="form-group">
-                        <label>Access Token</label>
-                        <input 
-                            v-model="credentials.access_token" 
-                            type="text" 
-                            placeholder="Enter your Page Access Token"
-                        />
-                        <small>Page Access Token with pages_manage_posts permission</small>
+                    <div>
+                        <label class="label">Person URN (optional)</label>
+                        <input v-model="credentials.person_urn" type="text" class="input" placeholder="urn:li:person:xxxxx" />
+                        <p class="hint">If not provided, it is fetched automatically from your profile.</p>
                     </div>
-                    <div class="form-group">
-                        <label>Instagram Account ID (Optional)</label>
-                        <input 
-                            v-model="credentials.instagram_account_id" 
-                            type="text" 
-                            placeholder="Instagram Business Account ID"
-                        />
-                        <small>For posting to Instagram (connected to your Facebook Page)</small>
-                    </div>
-                    <div class="form-actions">
-                        <button 
-                            type="button" 
-                            @click="testConnection" 
-                            class="btn-secondary"
-                            :disabled="testingConnection || !hasCredentials"
-                        >
-                            {{ testingConnection ? 'Testing...' : 'Test Connection' }}
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" @click="testConnection" class="btn btn-secondary" :disabled="testingConnection || !hasCredentials">
+                            {{ testingConnection ? 'Testing...' : 'Test connection' }}
                         </button>
-                        <button 
-                            type="submit" 
-                            class="btn-primary"
-                            :disabled="!hasCredentials || connecting"
-                        >
-                            {{ connecting ? 'Connecting...' : 'Save Credentials' }}
+                        <button type="submit" class="btn btn-primary" :disabled="!hasCredentials || connecting">
+                            {{ connecting ? 'Connecting...' : 'Save credentials' }}
                         </button>
                     </div>
                 </form>
-            </div>
+            </section>
 
-            <!-- YouTube Connection -->
-            <div v-else-if="platformType === 'youtube'" class="connection-section">
-                <h3>Connect YouTube</h3>
-                <form @submit.prevent="handleConnect" class="credentials-form">
-                    <div class="form-group">
-                        <label>Credentials JSON</label>
-                        <textarea 
-                            v-model="credentials.credentials" 
-                            rows="8" 
-                            required 
-                            placeholder="Paste your Google OAuth credentials JSON"
-                        ></textarea>
-                        <small>Your Google OAuth 2.0 credentials JSON</small>
+            <!-- Facebook -->
+            <section v-else-if="platformType === 'facebook'" class="card space-y-5 p-5">
+                <div>
+                    <h2 class="card-title">Connect with Facebook</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Authorize and connect your Facebook Pages and Instagram accounts. You'll be able to select which Page to connect.
+                    </p>
+                </div>
+                <p v-if="!fbSDKReady" class="text-center text-sm text-slate-500">Loading Facebook login...</p>
+                <!-- The Facebook SDK script rewrites this element's contents, so Vue must not manage any children -->
+                <div class="flex min-h-[44px] items-center justify-center" id="fb-login-button-container"></div>
+
+                <div class="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-slate-400">
+                    <span class="h-px flex-1 bg-slate-200"></span> or connect manually <span class="h-px flex-1 bg-slate-200"></span>
+                </div>
+
+                <form @submit.prevent="handleManualConnect" class="space-y-5">
+                    <div>
+                        <label class="label">Page ID</label>
+                        <input v-model="credentials.page_id" type="text" class="input" placeholder="Enter your Facebook Page ID" />
+                        <p class="hint">Your Facebook Page ID.</p>
                     </div>
-                    <div class="form-actions">
-                        <button 
-                            type="button" 
-                            @click="testConnection" 
-                            class="btn-secondary"
-                            :disabled="testingConnection || !hasCredentials"
-                        >
-                            {{ testingConnection ? 'Testing...' : 'Test Connection' }}
+                    <div>
+                        <label class="label">Access token</label>
+                        <input v-model="credentials.access_token" type="text" class="input" placeholder="Enter your Page Access Token" />
+                        <p class="hint">Page Access Token with the pages_manage_posts permission.</p>
+                    </div>
+                    <div>
+                        <label class="label">Instagram account ID (optional)</label>
+                        <input v-model="credentials.instagram_account_id" type="text" class="input" placeholder="Instagram Business Account ID" />
+                        <p class="hint">For posting to Instagram (connected to your Facebook Page).</p>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" @click="testConnection" class="btn btn-secondary" :disabled="testingConnection || !hasCredentials">
+                            {{ testingConnection ? 'Testing...' : 'Test connection' }}
                         </button>
-                        <button 
-                            type="submit" 
-                            class="btn-primary"
-                            :disabled="!hasCredentials || connecting"
-                        >
+                        <button type="submit" class="btn btn-primary" :disabled="!hasCredentials || connecting">
+                            {{ connecting ? 'Connecting...' : 'Save credentials' }}
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- YouTube -->
+            <section v-else-if="platformType === 'youtube'" class="card p-5">
+                <h2 class="card-title">Connect YouTube</h2>
+                <form @submit.prevent="handleConnect" class="mt-5 space-y-5">
+                    <div>
+                        <label class="label">Credentials JSON</label>
+                        <textarea v-model="credentials.credentials" rows="8" class="input font-mono text-xs" required placeholder="Paste your Google OAuth credentials JSON"></textarea>
+                        <p class="hint">Your Google OAuth 2.0 credentials JSON.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" @click="testConnection" class="btn btn-secondary" :disabled="testingConnection || !hasCredentials">
+                            {{ testingConnection ? 'Testing...' : 'Test connection' }}
+                        </button>
+                        <button type="submit" class="btn btn-primary" :disabled="!hasCredentials || connecting">
                             {{ connecting ? 'Connecting...' : 'Connect' }}
                         </button>
                     </div>
                 </form>
-            </div>
+            </section>
 
-            <!-- TikTok OAuth Login -->
-            <div v-else-if="platformType === 'tiktok'" class="connection-section">
-                <h3>Connect with TikTok</h3>
-                <button 
-                    @click="loginWithTikTok" 
-                    class="btn-tiktok" 
-                    :disabled="linkingTikTok"
-                >
-                    <span v-if="!linkingTikTok">🎵 Login with TikTok</span>
+            <!-- TikTok -->
+            <section v-else-if="platformType === 'tiktok'" class="card space-y-5 p-5">
+                <div>
+                    <h2 class="card-title">Connect with TikTok</h2>
+                    <p class="mt-1 text-sm text-slate-500">Authorize and connect your TikTok account automatically.</p>
+                </div>
+                <button @click="loginWithTikTok" class="btn w-full bg-slate-900 text-white hover:bg-black" :disabled="linkingTikTok">
+                    <PlatformIcon type="tiktok" :size="18" class="rounded-sm bg-white p-px" />
+                    <span v-if="!linkingTikTok">Log in with TikTok</span>
                     <span v-else>Connecting...</span>
                 </button>
-                <p class="help-text">
-                    Click to authorize and connect your TikTok account automatically.
-                </p>
 
-                <div class="divider">OR</div>
+                <div class="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-slate-400">
+                    <span class="h-px flex-1 bg-slate-200"></span> or connect manually <span class="h-px flex-1 bg-slate-200"></span>
+                </div>
 
-                <h3>Manual Connection</h3>
-                <form @submit.prevent="handleManualConnect" class="credentials-form">
-                    <div class="form-group">
-                        <label>Access Token</label>
-                        <input 
-                            v-model="credentials.access_token" 
-                            type="text" 
-                            placeholder="Enter your TikTok access token"
-                        />
-                        <small>Your TikTok OAuth access token</small>
+                <form @submit.prevent="handleManualConnect" class="space-y-5">
+                    <div>
+                        <label class="label">Access token</label>
+                        <input v-model="credentials.access_token" type="text" class="input" placeholder="Enter your TikTok access token" />
+                        <p class="hint">Your TikTok OAuth access token.</p>
                     </div>
-                    <div class="form-group">
-                        <label>Open ID</label>
-                        <input 
-                            v-model="credentials.open_id" 
-                            type="text" 
-                            placeholder="Your TikTok Open ID"
-                        />
-                        <small>Your TikTok Open ID (from OAuth response)</small>
+                    <div>
+                        <label class="label">Open ID</label>
+                        <input v-model="credentials.open_id" type="text" class="input" placeholder="Your TikTok Open ID" />
+                        <p class="hint">Your TikTok Open ID (from the OAuth response).</p>
                     </div>
-                    <div class="form-actions">
-                        <button 
-                            type="button" 
-                            @click="testConnection" 
-                            class="btn-secondary"
-                            :disabled="testingConnection || !hasCredentials"
-                        >
-                            {{ testingConnection ? 'Testing...' : 'Test Connection' }}
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" @click="testConnection" class="btn btn-secondary" :disabled="testingConnection || !hasCredentials">
+                            {{ testingConnection ? 'Testing...' : 'Test connection' }}
                         </button>
-                        <button 
-                            type="submit" 
-                            class="btn-primary"
-                            :disabled="!hasCredentials || connecting"
-                        >
-                            {{ connecting ? 'Connecting...' : 'Save Credentials' }}
+                        <button type="submit" class="btn btn-primary" :disabled="!hasCredentials || connecting">
+                            {{ connecting ? 'Connecting...' : 'Save credentials' }}
                         </button>
                     </div>
                 </form>
-            </div>
+            </section>
 
-            <!-- Test Result -->
-            <div v-if="testResult" ref="testResultEl" class="test-result" :class="{ success: testResult.success, error: !testResult.success }">
-                <h4>{{ testResult.success ? '✓ Connection Successful' : '✗ Connection Failed' }}</h4>
+            <!-- Test result -->
+            <div v-if="testResult" ref="testResultEl" class="alert flex-col gap-0.5" :class="testResult.success ? 'alert-success' : 'alert-error'">
+                <h4 class="flex items-center gap-2 font-semibold">
+                    <CircleCheck v-if="testResult.success" class="h-4 w-4" />
+                    <CircleX v-else class="h-4 w-4" />
+                    {{ testResult.success ? 'Connection successful' : 'Connection failed' }}
+                </h4>
                 <p>{{ testResult.message }}</p>
             </div>
 
-            <!-- Error/Success Messages -->
-            <div v-if="error" class="error-message">{{ error }}</div>
-            <div v-if="success" class="success-message">{{ success }}</div>
+            <!-- Messages -->
+            <div v-if="error" class="alert alert-error">{{ error }}</div>
+            <div v-if="success" class="alert alert-success">{{ success }}</div>
 
-            <!-- Disconnect Button -->
-            <div v-if="isConnected" class="disconnect-section">
-                <button @click="handleDisconnect" class="btn-danger">
-                    Disconnect {{ platformInfo.name }}
+            <!-- Disconnect -->
+            <section v-if="isConnected" class="card flex flex-wrap items-center justify-between gap-4 p-5">
+                <div>
+                    <h2 class="card-title">Disconnect {{ platformInfo.name }}</h2>
+                    <p class="mt-0.5 text-sm text-slate-500">Publishing to this platform stops until you reconnect.</p>
+                </div>
+                <button @click="handleDisconnect" class="btn btn-danger">
+                    Disconnect
                 </button>
-            </div>
+            </section>
         </div>
     </div>
 </template>
@@ -267,9 +211,13 @@
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
+import { ArrowLeft, CircleCheck, CircleX } from 'lucide-vue-next';
+import PlatformIcon from '../components/PlatformIcon.vue';
+import { confirmDialog } from '../feedback.js';
 
 export default {
     name: 'PlatformDetail',
+    components: { ArrowLeft, CircleCheck, CircleX, PlatformIcon },
     setup() {
         const router = useRouter();
         const route = useRoute();
@@ -291,12 +239,12 @@ export default {
 
         const platformInfo = computed(() => {
             const platforms = {
-                linkedin: { name: 'LinkedIn', icon: '💼', description: 'Professional networking platform' },
-                facebook: { name: 'Facebook', icon: '📘', description: 'Social media platform' },
-                youtube: { name: 'YouTube', icon: '📺', description: 'Video sharing platform' },
-                tiktok: { name: 'TikTok', icon: '🎵', description: 'Short-form video platform' },
+                linkedin: { name: 'LinkedIn', description: 'Professional networking platform' },
+                facebook: { name: 'Facebook', description: 'Social media platform' },
+                youtube: { name: 'YouTube', description: 'Video sharing platform' },
+                tiktok: { name: 'TikTok', description: 'Short-form video platform' },
             };
-            return platforms[platformType] || { name: platformType, icon: '🔗', description: '' };
+            return platforms[platformType] || { name: platformType, description: '' };
         });
 
         const hasCredentials = computed(() => {
@@ -509,7 +457,13 @@ export default {
         };
 
         const handleDisconnect = async () => {
-            if (!confirm(`Are you sure you want to disconnect ${platformInfo.value.name}?`)) return;
+            const confirmed = await confirmDialog({
+                title: `Disconnect ${platformInfo.value.name}?`,
+                message: 'Publishing to this platform stops until you reconnect it.',
+                confirmText: 'Disconnect',
+                danger: true,
+            });
+            if (!confirmed) return;
 
             try {
                 await axios.delete(`/platforms/${platformType}/disconnect`);
@@ -681,7 +635,6 @@ export default {
             testingConnection,
             linkingLinkedIn,
             linkingTikTok,
-            linkingFacebook,
             error,
             success,
             testResult,
@@ -702,361 +655,3 @@ export default {
     },
 };
 </script>
-
-<style scoped>
-.platform-detail {
-    padding: 2rem;
-    max-width: 900px;
-    margin: 0 auto;
-}
-
-.btn-back {
-    background: none;
-    border: none;
-    color: #667eea;
-    cursor: pointer;
-    font-size: 0.9rem;
-    margin-bottom: 1rem;
-    padding: 0.5rem 0;
-}
-
-.btn-back:hover {
-    text-decoration: underline;
-}
-
-.platform-header {
-    margin-bottom: 2rem;
-}
-
-.platform-title {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-}
-
-.platform-icon {
-    font-size: 3rem;
-}
-
-.platform-title h1 {
-    margin: 0;
-    color: #333;
-}
-
-.platform-description {
-    color: #666;
-    margin: 0;
-}
-
-.status-card {
-    padding: 1.5rem;
-    border-radius: 8px;
-    margin-bottom: 2rem;
-    border: 2px solid;
-}
-
-.status-card.connected {
-    background: #d4edda;
-    border-color: #c3e6cb;
-}
-
-.status-card.disconnected {
-    background: #f8d7da;
-    border-color: #f5c6cb;
-}
-
-.status-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-}
-
-.status-header h3 {
-    margin: 0;
-    color: #333;
-}
-
-.status-badge {
-    padding: 0.4rem 0.8rem;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.status-badge.connected {
-    background: #155724;
-    color: white;
-}
-
-.status-badge.disconnected {
-    background: #721c24;
-    color: white;
-}
-
-.status-message {
-    margin: 0;
-    color: #555;
-}
-
-.connection-section {
-    background: white;
-    padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 2rem;
-}
-
-.connection-section h3 {
-    margin-top: 0;
-    margin-bottom: 1rem;
-    color: #333;
-}
-
-.btn-linkedin {
-    width: 100%;
-    padding: 0.75rem 1.5rem;
-    background-color: #0077b5;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    margin-bottom: 1rem;
-}
-
-.btn-linkedin:hover:not(:disabled) {
-    background-color: #005885;
-}
-
-.btn-linkedin:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.btn-tiktok {
-    width: 100%;
-    padding: 0.75rem 1.5rem;
-    background-color: #000000;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    margin-bottom: 1rem;
-}
-
-.btn-tiktok:hover:not(:disabled) {
-    background-color: #333333;
-}
-
-.btn-tiktok:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.facebook-login-wrapper {
-    margin-bottom: 1rem;
-    display: flex;
-    justify-content: center;
-    min-height: 40px;
-    align-items: center;
-}
-
-.facebook-login-wrapper iframe {
-    max-width: 100%;
-}
-
-.fb-loading {
-    color: #666;
-    font-size: 0.9rem;
-    padding: 0.5rem;
-}
-
-.help-text {
-    color: #666;
-    font-size: 0.9rem;
-    margin-bottom: 1.5rem;
-}
-
-.divider {
-    text-align: center;
-    margin: 2rem 0;
-    color: #999;
-    font-weight: 500;
-    position: relative;
-}
-
-.divider::before,
-.divider::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    width: 45%;
-    height: 1px;
-    background: #ddd;
-}
-
-.divider::before {
-    left: 0;
-}
-
-.divider::after {
-    right: 0;
-}
-
-.credentials-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.form-group label {
-    font-weight: 500;
-    color: #555;
-}
-
-.form-group input,
-.form-group textarea {
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
-    font-family: inherit;
-}
-
-.form-group textarea {
-    resize: vertical;
-    font-family: monospace;
-}
-
-.form-group small {
-    color: #666;
-    font-size: 0.85rem;
-}
-
-.form-group small a {
-    color: #667eea;
-    text-decoration: none;
-}
-
-.form-group small a:hover {
-    text-decoration: underline;
-}
-
-.form-actions {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1rem;
-}
-
-.btn-primary,
-.btn-secondary,
-.btn-danger {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 4px;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    flex: 1;
-}
-
-.btn-primary {
-    background-color: #667eea;
-    color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-    background-color: #5568d3;
-}
-
-.btn-secondary {
-    background-color: #6c757d;
-    color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-    background-color: #5a6268;
-}
-
-.btn-danger {
-    background-color: #dc3545;
-    color: white;
-}
-
-.btn-danger:hover {
-    background-color: #c82333;
-}
-
-.btn-primary:disabled,
-.btn-secondary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.test-result {
-    padding: 1rem;
-    border-radius: 4px;
-    margin: 1rem 0;
-}
-
-.test-result.success {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.test-result.error {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
-
-.test-result h4 {
-    margin: 0 0 0.5rem 0;
-}
-
-.test-result p {
-    margin: 0;
-}
-
-.error-message {
-    padding: 0.75rem;
-    background-color: #fee;
-    color: #c33;
-    border-radius: 4px;
-    margin: 1rem 0;
-}
-
-.success-message {
-    padding: 0.75rem;
-    background-color: #dfd;
-    color: #3c3;
-    border-radius: 4px;
-    margin: 1rem 0;
-}
-
-.disconnect-section {
-    margin-top: 2rem;
-    padding-top: 2rem;
-    border-top: 1px solid #ddd;
-}
-
-.loading {
-    text-align: center;
-    padding: 3rem;
-    color: #666;
-}
-</style>

@@ -1,57 +1,93 @@
 <template>
-    <div class="create-post">
-        <h1>Create Post</h1>
-        
-        <form @submit.prevent="handleSubmit" class="post-form">
-            <div class="form-group">
-                <label>Content</label>
-                <textarea v-model="form.content" rows="6" required placeholder="What would you like to post?"></textarea>
-            </div>
+    <div>
+        <PageHeader title="Create post" description="Write once, then choose where it goes." />
 
-            <div class="form-group">
-                <label>Select Platforms</label>
-                <div v-if="loadingPlatforms" class="loading">Loading platforms...</div>
-                <div v-else-if="platforms.length === 0" class="warning">
-                    No platforms connected. <router-link to="/settings">Connect platforms</router-link>
-                </div>
-                <div v-else class="platforms-list">
-                    <label v-for="platform in platforms" :key="platform.id" class="platform-checkbox">
-                        <input type="checkbox" :value="platform.id" v-model="form.platforms" />
-                        <span>{{ platform.platform_type }}</span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Media Files (Optional)</label>
-                <input 
-                    type="file" 
-                    @change="handleFileUpload" 
-                    multiple 
-                    :accept="getFileAcceptTypes()" 
-                />
-                <div v-if="uploadedMedia.length > 0" class="uploaded-media">
-                    <div v-for="media in uploadedMedia" :key="media.id" class="media-item">
-                        <span>{{ media.filename }}</span>
-                        <button type="button" @click="removeMedia(media.id)" class="btn-remove">Remove</button>
+        <form @submit.prevent="handleSubmit" class="grid gap-6 lg:grid-cols-3">
+            <!-- Composer -->
+            <div class="space-y-6 lg:col-span-2">
+                <section class="card p-5">
+                    <div class="mb-1.5 flex items-center justify-between">
+                        <label class="label mb-0" for="post-content">Content</label>
+                        <span class="text-xs text-slate-400">{{ form.content.length }} characters</span>
                     </div>
-                </div>
+                    <textarea id="post-content" v-model="form.content" rows="9" class="input resize-y" required placeholder="What would you like to post?"></textarea>
+                </section>
+
+                <section class="card p-5">
+                    <label class="label">Media <span class="font-normal text-slate-400">(optional)</span></label>
+                    <label
+                        class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition hover:border-brand-400 hover:bg-brand-50/40"
+                        @dragover.prevent
+                        @drop.prevent="handleFileUpload({ target: { files: $event.dataTransfer.files } })"
+                    >
+                        <UploadCloud class="h-8 w-8 text-slate-400" />
+                        <span class="mt-3 text-sm font-medium text-slate-700">
+                            <span class="text-brand-700">Click to upload</span> or drag and drop
+                        </span>
+                        <span class="mt-1 text-xs text-slate-500">Images and videos</span>
+                        <input type="file" class="sr-only" multiple :accept="getFileAcceptTypes()" @change="handleFileUpload" />
+                    </label>
+
+                    <ul v-if="uploadedMedia.length > 0" class="mt-4 grid gap-3 sm:grid-cols-2">
+                        <li v-for="media in uploadedMedia" :key="media.id" class="flex items-center gap-3 rounded-lg bg-slate-50 p-2.5 ring-1 ring-slate-900/5">
+                            <img v-if="media.type === 'image'" :src="media.url" :alt="media.filename" class="h-12 w-12 shrink-0 rounded-md object-cover" />
+                            <span v-else class="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-slate-200 text-slate-500">
+                                <Film class="h-5 w-5" />
+                            </span>
+                            <span class="min-w-0 flex-1 truncate text-sm text-slate-700">{{ media.filename }}</span>
+                            <button type="button" @click="removeMedia(media.id)" class="btn btn-ghost p-2!" aria-label="Remove file">
+                                <X class="h-4 w-4" />
+                            </button>
+                        </li>
+                    </ul>
+                </section>
             </div>
 
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" v-model="form.schedule" />
-                    Schedule for later
-                </label>
-                <input v-if="form.schedule" v-model="form.scheduled_at" type="datetime-local" required />
+            <!-- Publish settings -->
+            <div class="space-y-6 lg:sticky lg:top-8 lg:self-start">
+                <section class="card p-5">
+                    <h2 class="label">Platforms</h2>
+                    <div v-if="loadingPlatforms" class="space-y-2">
+                        <div v-for="n in 2" :key="n" class="h-12 animate-pulse rounded-lg bg-slate-100"></div>
+                    </div>
+                    <div v-else-if="platforms.length === 0" class="alert alert-warning">
+                        <span>No platforms connected. <router-link to="/settings" class="font-semibold underline">Connect platforms</router-link></span>
+                    </div>
+                    <div v-else class="space-y-2">
+                        <label v-for="platform in platforms" :key="platform.id" class="block cursor-pointer">
+                            <input type="checkbox" :value="platform.id" v-model="form.platforms" class="peer sr-only" />
+                            <span class="flex items-center gap-3 rounded-lg bg-white px-3.5 py-3 ring-1 ring-inset ring-slate-300 transition peer-checked:bg-brand-50 peer-checked:ring-2 peer-checked:ring-brand-600 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600">
+                                <PlatformIcon :type="platform.platform_type" :size="22" />
+                                <span class="flex-1 text-sm font-medium text-slate-800">{{ platformLabel(platform.platform_type) }}</span>
+                                <span class="flex h-5 w-5 items-center justify-center rounded-full ring-1 ring-inset transition"
+                                    :class="form.platforms.includes(platform.id) ? 'bg-brand-600 text-white ring-brand-600' : 'text-transparent ring-slate-300'">
+                                    <Check class="h-3.5 w-3.5" />
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="card p-5">
+                    <label class="flex cursor-pointer items-center justify-between gap-3">
+                        <span class="flex items-center gap-2 text-sm font-medium text-slate-700">
+                            <CalendarClock class="h-4 w-4 text-slate-400" /> Schedule for later
+                        </span>
+                        <input type="checkbox" v-model="form.schedule" class="peer sr-only" />
+                        <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-brand-600 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-5"></span>
+                    </label>
+                    <input v-if="form.schedule" v-model="form.scheduled_at" type="datetime-local" class="input mt-4" required />
+                </section>
+
+                <button type="submit" class="btn btn-primary w-full py-3" :disabled="loading || form.platforms.length === 0">
+                    <Send class="h-4 w-4" />
+                    {{ loading ? 'Publishing...' : (form.schedule ? 'Schedule post' : 'Publish now') }}
+                </button>
+                <p v-if="form.platforms.length === 0 && !loadingPlatforms && platforms.length" class="-mt-3 text-center text-xs text-slate-500">Select at least one platform.</p>
+
+                <div v-if="error" class="alert alert-error">{{ error }}</div>
+                <div v-if="success" class="alert alert-success">{{ success }}</div>
             </div>
-
-            <button type="submit" class="btn-primary" :disabled="loading || form.platforms.length === 0">
-                {{ loading ? 'Publishing...' : (form.schedule ? 'Schedule Post' : 'Publish Now') }}
-            </button>
-
-            <div v-if="error" class="error-message">{{ error }}</div>
-            <div v-if="success" class="success-message">{{ success }}</div>
         </form>
     </div>
 </template>
@@ -60,9 +96,14 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import { CalendarClock, Check, Film, Send, UploadCloud, X } from 'lucide-vue-next';
+import PageHeader from '../components/PageHeader.vue';
+import PlatformIcon from '../components/PlatformIcon.vue';
+import { platformLabel } from '../platforms.js';
 
 export default {
     name: 'CreatePost',
+    components: { CalendarClock, Check, Film, Send, UploadCloud, X, PageHeader, PlatformIcon },
     setup() {
         const router = useRouter();
         const form = ref({
@@ -229,6 +270,7 @@ export default {
         onMounted(loadPlatforms);
 
         return {
+            platformLabel,
             form,
             platforms,
             uploadedMedia,
@@ -244,152 +286,3 @@ export default {
     },
 };
 </script>
-
-<style scoped>
-.create-post {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 2rem;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.create-post h1 {
-    margin-bottom: 2rem;
-    color: #333;
-}
-
-.post-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.form-group label {
-    font-weight: 500;
-    color: #555;
-}
-
-.form-group textarea,
-.form-group input[type="text"],
-.form-group input[type="datetime-local"],
-.form-group input[type="file"] {
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
-    font-family: inherit;
-}
-
-.form-group textarea {
-    resize: vertical;
-}
-
-.platforms-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.platform-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.platform-checkbox:hover {
-    background-color: #f5f5f5;
-}
-
-.platform-checkbox input[type="checkbox"] {
-    cursor: pointer;
-}
-
-.uploaded-media {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-}
-
-.media-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem;
-    background: #f5f5f5;
-    border-radius: 4px;
-}
-
-.btn-remove {
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.8rem;
-}
-
-.btn-primary {
-    padding: 0.75rem 1.5rem;
-    background-color: #667eea;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.btn-primary:hover:not(:disabled) {
-    background-color: #5568d3;
-}
-
-.btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.error-message {
-    padding: 0.75rem;
-    background-color: #fee;
-    color: #c33;
-    border-radius: 4px;
-    white-space: pre-line;
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-.success-message {
-    padding: 0.75rem;
-    background-color: #dfd;
-    color: #3c3;
-    border-radius: 4px;
-}
-
-.warning {
-    padding: 1rem;
-    background-color: #fff3cd;
-    color: #856404;
-    border-radius: 4px;
-}
-
-.warning a {
-    color: #667eea;
-    text-decoration: none;
-}
-</style>
-
