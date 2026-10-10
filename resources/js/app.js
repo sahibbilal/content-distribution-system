@@ -8,6 +8,9 @@ import Home from './pages/Home.vue';
 import Terms from './pages/Terms.vue';
 import Privacy from './pages/Privacy.vue';
 import Admin from './pages/Admin.vue';
+import AdminUsers from './pages/AdminUsers.vue';
+import AdminAi from './pages/AdminAi.vue';
+import AdminEmail from './pages/AdminEmail.vue';
 import Dashboard from './pages/Dashboard.vue';
 import CreatePost from './pages/CreatePost.vue';
 import Settings from './pages/Settings.vue';
@@ -108,6 +111,9 @@ const routes = [
     { path: '/privacy', component: Privacy },
     { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true } },
     { path: '/admin', component: Admin, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/admin/users', component: AdminUsers, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/admin/ai', component: AdminAi, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/admin/email', component: AdminEmail, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/create-post', component: CreatePost, meta: { requiresAuth: true } },
     { path: '/settings', component: Settings, meta: { requiresAuth: true } },
     { path: '/platforms', component: Platforms, meta: { requiresAuth: true } },
