@@ -181,6 +181,15 @@ class LinkedInService implements PlatformServiceInterface
     private function getPersonUrn(string $accessToken): ?string
     {
         try {
+            $userinfo = Http::withHeaders([
+                'Authorization' => "Bearer {$accessToken}",
+            ])->timeout(10)
+            ->get('https://api.linkedin.com/v2/userinfo');
+
+            if ($userinfo->successful() && !empty($userinfo->json('sub'))) {
+                return $userinfo->json('sub');
+            }
+
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$accessToken}",
                 'X-Restli-Protocol-Version' => '2.0.0',
@@ -234,7 +243,26 @@ class LinkedInService implements PlatformServiceInterface
         }
 
         try {
-            // Test by getting user profile
+            // OpenID Connect scopes (openid profile email) use /v2/userinfo
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$accessToken}",
+            ])->timeout(10)
+            ->get('https://api.linkedin.com/v2/userinfo');
+
+            if ($response->successful()) {
+                $userData = $response->json();
+                $personUrn = $userData['sub'] ?? null;
+                $name = $userData['name'] ?? trim(($userData['given_name'] ?? '') . ' ' . ($userData['family_name'] ?? '')) ?: 'Unknown';
+
+                return [
+                    'success' => true,
+                    'message' => 'Connection successful! Authenticated as: ' . $name . ($personUrn ? ' (URN: ' . $personUrn . ')' : ''),
+                    'user' => $userData,
+                    'person_urn' => $personUrn,
+                ];
+            }
+
+            // Fallback for legacy tokens with r_liteprofile/r_basicprofile
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$accessToken}",
                 'X-Restli-Protocol-Version' => '2.0.0',

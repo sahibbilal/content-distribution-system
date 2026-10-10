@@ -62,41 +62,42 @@ jobs:
           fi
 
       - name: Deploy Files via SSH
-        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ vars.SSH_HOST_DEV }}
-          username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          password: ${{ secrets.SSH_PASSWORD_DEV }}
-          port: ${{ vars.SSH_PORT_DEV || 22 }}
-          source: "."
-          target: "domains/wpcorex.com/public_html/cds"
-          strip_components: 0
-          rm: false
-          exclude: |
-            .git
-            .github
-            node_modules
-            vendor
-            storage/logs
-            storage/framework/cache
-            storage/framework/sessions
-            storage/framework/views
-            .env
-            .env.backup
-            .env.production
-            .git*
-            .DS_Store
-            Thumbs.db
-            resources/js
-            resources/css
-            package.json
-            package-lock.json
-            vite.config.js
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.DEPLOY_PATH_DEV }}
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          SSH_HOST: ${{ vars.SSH_HOST_DEV }}
+          SSH_USER: ${{ vars.SSH_USERNAME_DEV }}
+          SSH_PORT: ${{ vars.SSH_PORT_DEV || 22 }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH_DEV }}
+        run: |
+          set -e
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # No --delete: server-only files (.env*, uploads, logs) are never removed
+          rsync -az --no-perms --no-owner --no-group \
+            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=accept-new" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='vendor' \
+            --exclude='storage/logs' \
+            --exclude='storage/framework/cache' \
+            --exclude='storage/framework/sessions' \
+            --exclude='storage/framework/views' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='.DS_Store' \
+            --exclude='Thumbs.db' \
+            --exclude='resources/js' \
+            --exclude='resources/css' \
+            --exclude='package.json' \
+            --exclude='package-lock.json' \
+            --exclude='vite.config.js' \
+            ./ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"
 
       - name: Install PHP Dependencies (if needed)
-        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.DEPLOY_PATH_DEV }}
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ vars.SSH_HOST_DEV }}
@@ -108,11 +109,12 @@ jobs:
           script: |
             set -e
             echo "=== Check and Install PHP Dependencies ==="
-            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+            DEPLOY_PATH="${{ vars.DEPLOY_PATH_DEV }}"
             cd "$DEPLOY_PATH" || {
               echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
               exit 1
             }
+            mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
             echo "Current directory: $(pwd)"
             echo ""
             echo "=== Verifying composer.json exists ==="
@@ -158,7 +160,7 @@ jobs:
             echo "✓ Composer dependencies are ready"
 
       - name: Run Database Migrations
-        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.DEPLOY_PATH_DEV }}
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ vars.SSH_HOST_DEV }}
@@ -168,7 +170,7 @@ jobs:
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           command_timeout: 120s
           script: |
-            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+            DEPLOY_PATH="${{ vars.DEPLOY_PATH_DEV }}"
             cd "$DEPLOY_PATH" || exit 1
             echo "=== Running Database Migrations ==="
             # Check database connection first
@@ -187,7 +189,7 @@ jobs:
             php artisan migrate:status || echo "WARNING: Could not show migration status"
 
       - name: Clear Laravel Caches
-        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV }}
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.DEPLOY_PATH_DEV }}
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ vars.SSH_HOST_DEV }}
@@ -196,7 +198,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+            DEPLOY_PATH="${{ vars.DEPLOY_PATH_DEV }}"
             cd "$DEPLOY_PATH" || exit 1
             echo "=== Clearing Laravel caches ==="
             # Clear view cache to ensure fresh Vite tags

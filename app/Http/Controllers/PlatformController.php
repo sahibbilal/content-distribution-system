@@ -89,18 +89,34 @@ class PlatformController extends Controller
     public function test(Request $request, $platformType)
     {
         $request->validate([
-            'credentials' => 'required|array',
+            'credentials' => 'sometimes|array',
         ]);
 
         $allowedPlatforms = ['facebook', 'linkedin', 'youtube', 'tiktok', 'kaggle'];
-        
+
         if (!in_array($platformType, $allowedPlatforms)) {
             return response()->json(['error' => 'Invalid platform type'], 400);
         }
 
+        // No credentials sent: test the ones already saved for this user
+        $credentials = $request->credentials;
+        if (empty($credentials)) {
+            $platform = Platform::where('user_id', $request->user()->id)
+                ->where('platform_type', $platformType)
+                ->first();
+
+            if (!$platform) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No saved credentials found. Please connect first.',
+                ], 404);
+            }
+            $credentials = $platform->credentials;
+        }
+
         try {
             $service = PlatformServiceFactory::create($platformType);
-            $isValid = $service->validateCredentials($request->credentials);
+            $isValid = $service->validateCredentials($credentials);
             
             if (!$isValid) {
                 return response()->json([
@@ -111,7 +127,7 @@ class PlatformController extends Controller
 
             // Test the connection by calling a test method if available
             if (method_exists($service, 'testConnection')) {
-                $testResult = $service->testConnection($request->credentials);
+                $testResult = $service->testConnection($credentials);
                 return response()->json($testResult);
             }
 

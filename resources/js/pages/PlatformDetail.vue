@@ -23,6 +23,9 @@
                 <p v-if="isConnected" class="status-message">
                     Your {{ platformInfo.name }} account is connected and ready to use.
                 </p>
+                <button v-if="isConnected" type="button" class="btn-secondary" @click="testSavedConnection" :disabled="testingConnection">
+                    {{ testingConnection ? 'Testing...' : 'Test Saved Connection' }}
+                </button>
                 <p v-else class="status-message">
                     Connect your {{ platformInfo.name }} account to start publishing content.
                 </p>
@@ -288,7 +291,7 @@
             </div>
 
             <!-- Test Result -->
-            <div v-if="testResult" class="test-result" :class="{ success: testResult.success, error: !testResult.success }">
+            <div v-if="testResult" ref="testResultEl" class="test-result" :class="{ success: testResult.success, error: !testResult.success }">
                 <h4>{{ testResult.success ? '✓ Connection Successful' : '✗ Connection Failed' }}</h4>
                 <p>{{ testResult.message }}</p>
             </div>
@@ -327,6 +330,7 @@ export default {
         const error = ref('');
         const success = ref('');
         const testResult = ref(null);
+        const testResultEl = ref(null);
         const credentials = ref({});
         const isConnected = ref(false);
         const platformId = ref(null);
@@ -491,7 +495,7 @@ export default {
             window.statusChangeCallback = statusChangeCallback;
         }
 
-        const testConnection = async () => {
+        const testConnection = () => {
             if (!hasCredentials.value) {
                 testResult.value = {
                     success: false,
@@ -500,15 +504,20 @@ export default {
                 return;
             }
 
+            return runTest({ credentials: credentials.value });
+        };
+
+        // Test the credentials already saved on the server (no re-entry needed)
+        const testSavedConnection = () => runTest({});
+
+        const runTest = async (payload) => {
             testingConnection.value = true;
             testResult.value = null;
             error.value = '';
             success.value = '';
 
             try {
-                const response = await axios.post(`/platforms/${platformType}/test`, {
-                    credentials: credentials.value,
-                });
+                const response = await axios.post(`/platforms/${platformType}/test`, payload);
                 testResult.value = {
                     success: response.data.success,
                     message: response.data.message || 'Connection test completed',
@@ -520,6 +529,8 @@ export default {
                 };
             } finally {
                 testingConnection.value = false;
+                await nextTick();
+                testResultEl.value?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         };
 
@@ -724,6 +735,7 @@ export default {
             error,
             success,
             testResult,
+            testResultEl,
             credentials,
             isConnected,
             hasCredentials,
@@ -731,6 +743,7 @@ export default {
             loginWithLinkedIn,
             loginWithTikTok,
             testConnection,
+            testSavedConnection,
             handleConnect,
             handleManualConnect,
             handleDisconnect,
