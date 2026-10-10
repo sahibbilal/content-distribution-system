@@ -1,6 +1,7 @@
 <template>
     <div class="admin">
         <h1>Site content</h1>
+        <AdminNav />
         <p class="lead">Edit what visitors see on the home, terms and privacy pages. Changes go live when you save.</p>
 
         <div v-if="loading" class="muted">Loading...</div>
@@ -91,6 +92,7 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { loadSiteContent, setSiteContent } from '../siteContent.js';
+import AdminNav from '../components/AdminNav.vue';
 
 const toForm = (c) => ({
     contact_email: c.contact_email,
@@ -133,6 +135,7 @@ const toPayload = (f) => ({
 
 export default {
     name: 'Admin',
+    components: { AdminNav },
     setup() {
         const form = ref(null);
         const loading = ref(true);

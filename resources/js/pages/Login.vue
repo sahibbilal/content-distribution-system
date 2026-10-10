@@ -1,34 +1,32 @@
 <template>
-    <div class="auth-container">
-        <div class="auth-card">
-            <div class="auth-logo"><BrandLogo :size="72" /></div>
-            <h1>Login</h1>
-            <div v-if="info" class="notice-message">{{ info }}</div>
-            <form @submit.prevent="handleLogin">
-                <div class="form-group">
-                    <label>Email</label>
-                    <input v-model="form.email" type="email" name="email" autocomplete="username" required />
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <PasswordInput v-model="form.password" autocomplete="current-password" />
-                </div>
-                <label class="remember">
-                    <input v-model="form.remember" type="checkbox" /> Remember me
-                </label>
-                <button type="submit" class="btn-primary" :disabled="loading">
-                    {{ loading ? 'Logging in...' : 'Login' }}
-                </button>
-                <p class="auth-link">
-                    Don't have an account? <router-link to="/register">Register</router-link>
-                </p>
-                <div v-if="error" class="error-message">{{ error }}</div>
-                <p v-if="needsVerification" class="auth-link">
-                    <a href="#" @click.prevent="resend">Resend verification email</a>
-                </p>
-            </form>
-        </div>
-    </div>
+    <AuthLayout title="Welcome back" subtitle="Log in to manage and publish your content.">
+        <div v-if="info" class="alert alert-info mb-5">{{ info }}</div>
+        <form class="space-y-5" @submit.prevent="handleLogin">
+            <div>
+                <label class="label" for="email">Email</label>
+                <input id="email" v-model="form.email" type="email" name="email" autocomplete="username" class="input" placeholder="you@example.com" required />
+            </div>
+            <div>
+                <label class="label">Password</label>
+                <PasswordInput v-model="form.password" autocomplete="current-password" />
+            </div>
+            <label class="flex items-center gap-2 text-sm text-slate-600">
+                <input v-model="form.remember" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600" />
+                Remember me
+            </label>
+            <button type="submit" class="btn btn-primary w-full" :disabled="loading">
+                {{ loading ? 'Logging in...' : 'Log in' }}
+            </button>
+            <div v-if="error" class="alert alert-error">{{ error }}</div>
+            <p v-if="needsVerification" class="text-center text-sm">
+                <a href="#" class="font-medium text-brand-700 hover:text-brand-800" @click.prevent="resend">Resend verification email</a>
+            </p>
+            <p class="text-center text-sm text-slate-600">
+                Don't have an account?
+                <router-link to="/register" class="font-semibold text-brand-700 hover:text-brand-800">Register</router-link>
+            </p>
+        </form>
+    </AuthLayout>
 </template>
 
 <script>
@@ -36,11 +34,11 @@ import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import PasswordInput from '../components/PasswordInput.vue';
-import BrandLogo from '../components/BrandLogo.vue';
+import AuthLayout from '../components/AuthLayout.vue';
 
 export default {
     name: 'Login',
-    components: { PasswordInput, BrandLogo },
+    components: { PasswordInput, AuthLayout },
     setup() {
         const router = useRouter();
         const route = useRoute();
@@ -111,112 +109,3 @@ export default {
     },
 };
 </script>
-
-<style scoped>
-.auth-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.auth-card {
-    background: white;
-    padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    width: 100%;
-    max-width: 400px;
-}
-
-.auth-logo {
-    text-align: center;
-    margin-bottom: 1.25rem;
-}
-
-.auth-card h1 {
-    margin-bottom: 1.5rem;
-    text-align: center;
-    color: #333;
-}
-
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: #555;
-    font-weight: 500;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
-}
-
-.btn-primary {
-    width: 100%;
-    padding: 0.75rem;
-    background-color: #667eea;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.btn-primary:hover:not(:disabled) {
-    background-color: #5568d3;
-}
-
-.btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.auth-link {
-    text-align: center;
-    margin-top: 1rem;
-    color: #666;
-}
-
-.auth-link a {
-    color: #667eea;
-    text-decoration: none;
-}
-
-.notice-message {
-    margin-bottom: 1rem;
-    padding: 0.75rem;
-    background-color: #eef3ff;
-    color: #3b4cb8;
-    border-radius: 4px;
-    text-align: center;
-}
-
-.remember {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    color: #555;
-    cursor: pointer;
-}
-
-.error-message {
-    margin-top: 1rem;
-    padding: 0.75rem;
-    background-color: #fee;
-    color: #c33;
-    border-radius: 4px;
-    text-align: center;
-}
-</style>
-

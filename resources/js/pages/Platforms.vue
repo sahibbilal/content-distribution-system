@@ -1,45 +1,54 @@
 <template>
-    <div class="platforms-page">
-        <h1>Platforms</h1>
-        <p class="page-description">Connect and manage your social media platforms</p>
+    <div>
+        <PageHeader title="Platforms" description="Connect and manage the accounts you publish to." />
 
-        <div v-if="loading" class="loading">Loading platforms...</div>
-        
-        <div v-else class="platforms-grid">
-            <div 
-                v-for="platform in availablePlatforms" 
+        <div v-if="loading" class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <div v-for="n in 4" :key="n" class="card h-52 animate-pulse bg-slate-100"></div>
+        </div>
+
+        <div v-else class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <div
+                v-for="platform in availablePlatforms"
                 :key="platform.type"
-                class="platform-card"
+                class="card group flex cursor-pointer flex-col p-5 transition hover:-translate-y-0.5 hover:shadow-pop focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                role="button"
+                tabindex="0"
                 @click="goToPlatform(platform.type)"
+                @keyup.enter="goToPlatform(platform.type)"
             >
-                <div class="platform-icon">{{ platform.icon }}</div>
-                <h3>{{ platform.name }}</h3>
-                <p class="platform-description">{{ platform.description }}</p>
-                
-                <div class="platform-status">
-                    <span v-if="isConnected(platform.type)" class="status-badge connected">
-                        ✓ Connected
+                <div class="flex items-start justify-between">
+                    <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-50 ring-1 ring-slate-900/5">
+                        <PlatformIcon :type="platform.type" :size="28" />
                     </span>
-                    <span v-else class="status-badge disconnected">
-                        Not Connected
+                    <span v-if="isConnected(platform.type)" class="badge badge-success">
+                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Connected
+                    </span>
+                    <span v-else class="badge badge-neutral">
+                        <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span> Not connected
                     </span>
                 </div>
-                
-                <button class="btn-view-details">
-                    {{ isConnected(platform.type) ? 'Manage' : 'Connect' }} →
-                </button>
+                <h3 class="mt-4 text-lg font-semibold text-slate-900">{{ platform.name }}</h3>
+                <p class="mt-1 flex-1 text-sm text-slate-500">{{ platform.description }}</p>
+                <div class="mt-5 flex items-center gap-1 text-sm font-semibold text-brand-700 group-hover:text-brand-800">
+                    {{ isConnected(platform.type) ? 'Manage' : 'Connect' }}
+                    <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import { ArrowRight } from 'lucide-vue-next';
+import PageHeader from '../components/PageHeader.vue';
+import PlatformIcon from '../components/PlatformIcon.vue';
 
 export default {
     name: 'Platforms',
+    components: { ArrowRight, PageHeader, PlatformIcon },
     setup() {
         const router = useRouter();
         const loading = ref(true);
@@ -49,25 +58,21 @@ export default {
             {
                 type: 'linkedin',
                 name: 'LinkedIn',
-                icon: '💼',
                 description: 'Professional networking and content sharing',
             },
             {
                 type: 'facebook',
                 name: 'Facebook',
-                icon: '📘',
                 description: 'Social media platform for sharing content',
             },
             {
                 type: 'youtube',
                 name: 'YouTube',
-                icon: '📺',
                 description: 'Video sharing and streaming platform',
             },
             {
                 type: 'tiktok',
                 name: 'TikTok',
-                icon: '🎵',
                 description: 'Short-form video content platform',
             },
         ];
@@ -96,118 +101,9 @@ export default {
         return {
             loading,
             availablePlatforms,
-            connectedPlatforms,
             isConnected,
             goToPlatform,
         };
     },
 };
 </script>
-
-<style scoped>
-.platforms-page {
-    padding: 2rem;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.platforms-page h1 {
-    margin-bottom: 0.5rem;
-    color: #333;
-}
-
-.page-description {
-    color: #666;
-    margin-bottom: 2rem;
-}
-
-.loading {
-    text-align: center;
-    padding: 3rem;
-    color: #666;
-}
-
-.platforms-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
-}
-
-.platform-card {
-    background: white;
-    border: 2px solid #e0e0e0;
-    border-radius: 12px;
-    padding: 2rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-}
-
-.platform-card:hover {
-    border-color: #667eea;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-    transform: translateY(-2px);
-}
-
-.platform-icon {
-    font-size: 3rem;
-    margin-bottom: 0.5rem;
-}
-
-.platform-card h3 {
-    margin: 0;
-    color: #333;
-    font-size: 1.5rem;
-}
-
-.platform-description {
-    color: #666;
-    font-size: 0.9rem;
-    margin: 0;
-    flex-grow: 1;
-}
-
-.platform-status {
-    margin: 0.5rem 0;
-}
-
-.status-badge {
-    display: inline-block;
-    padding: 0.4rem 0.8rem;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.status-badge.connected {
-    background: #d4edda;
-    color: #155724;
-}
-
-.status-badge.disconnected {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-.btn-view-details {
-    margin-top: auto;
-    padding: 0.75rem 1.5rem;
-    background-color: #667eea;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    width: 100%;
-}
-
-.btn-view-details:hover {
-    background-color: #5568d3;
-}
-</style>

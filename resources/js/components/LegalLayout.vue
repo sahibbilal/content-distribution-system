@@ -1,16 +1,22 @@
 <template>
-    <div class="legal">
-        <header class="legal-nav">
-            <BrandLogo :size="44" pill />
+    <div class="min-h-screen bg-white">
+        <header class="border-b border-slate-200">
+            <div class="mx-auto flex h-16 max-w-3xl items-center justify-between px-4 sm:px-6">
+                <BrandLogo :size="36" />
+                <router-link to="/login" class="btn btn-ghost">Log in</router-link>
+            </div>
         </header>
-        <main class="legal-body">
-            <h1>{{ title }}</h1>
-            <p class="updated">Last updated: {{ updated }}</p>
-            <slot :contact-email="contactEmail" />
+        <main class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+            <h1 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{{ title }}</h1>
+            <p class="mt-2 text-sm text-slate-500">Last updated: {{ updated }}</p>
+            <div class="legal-prose mt-8">
+                <slot :contact-email="contactEmail" />
+            </div>
         </main>
-        <footer class="legal-footer">
-            <router-link to="/terms">Terms of Service</router-link>
-            &middot; <router-link to="/privacy">Privacy Policy</router-link>
+        <footer class="border-t border-slate-200 bg-slate-50 py-8 text-center text-sm text-slate-500">
+            <router-link to="/terms" class="hover:text-slate-900">Terms of Service</router-link>
+            <span class="mx-1">&middot;</span>
+            <router-link to="/privacy" class="hover:text-slate-900">Privacy Policy</router-link>
         </footer>
     </div>
 </template>
@@ -34,16 +40,3 @@ export default {
     },
 };
 </script>
-
-<style scoped>
-.legal { min-height: 100vh; background: #fff; color: #2c3e50; }
-.legal-nav { padding: 1rem 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-.legal-body { max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem 3rem; line-height: 1.7; }
-.legal-body h1 { margin-bottom: 0.25rem; }
-.updated { color: #888; margin-bottom: 2rem; }
-.legal-body :slotted(h2) { margin: 2rem 0 0.5rem; font-size: 1.25rem; }
-.legal-body :slotted(ul) { margin: 0.5rem 0 0.5rem 1.5rem; }
-.legal-body :slotted(a) { color: #667eea; }
-.legal-footer { padding: 1.5rem; text-align: center; background: #f5f5f5; color: #888; }
-.legal-footer a { color: #667eea; text-decoration: none; }
-</style>

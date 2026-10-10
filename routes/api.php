@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\AdminAiController;
+use App\Http\Controllers\AdminMailController;
+use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PlatformController;
@@ -25,6 +28,18 @@ Route::get('/site-content', [SiteContentController::class, 'show']);
 
 Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::put('/admin/site-content', [SiteContentController::class, 'update']);
+
+    Route::get('/admin/users', [AdminUserController::class, 'index']);
+    Route::patch('/admin/users/{user}', [AdminUserController::class, 'update']);
+    Route::post('/admin/users/{user}/verify', [AdminUserController::class, 'verify']);
+    Route::post('/admin/users/{user}/resend-verification', [AdminUserController::class, 'resendVerification']);
+
+    Route::get('/admin/ai', [AdminAiController::class, 'index']);
+    Route::put('/admin/ai/{provider}', [AdminAiController::class, 'update']);
+    Route::post('/admin/ai/{provider}/test', [AdminAiController::class, 'test']);
+
+    Route::get('/admin/mail', [AdminMailController::class, 'show']);
+    Route::post('/admin/mail/test', [AdminMailController::class, 'test']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {

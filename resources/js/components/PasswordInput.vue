@@ -1,27 +1,33 @@
 <template>
-    <div class="pw">
+    <div class="relative">
         <input
             :type="show ? 'text' : 'password'"
             :value="modelValue"
             :autocomplete="autocomplete"
             :name="name"
+            class="input pr-11"
             required
             @input="$emit('update:modelValue', $event.target.value)"
         />
         <button
             type="button"
-            class="pw-toggle"
+            class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600"
             :aria-label="show ? 'Hide password' : 'Show password'"
             @click="show = !show"
-        >{{ show ? '🙈' : '👁️' }}</button>
+        >
+            <EyeOff v-if="show" class="h-5 w-5" />
+            <Eye v-else class="h-5 w-5" />
+        </button>
     </div>
 </template>
 
 <script>
 import { ref } from 'vue';
+import { Eye, EyeOff } from 'lucide-vue-next';
 
 export default {
     name: 'PasswordInput',
+    components: { Eye, EyeOff },
     props: {
         modelValue: { type: String, default: '' },
         autocomplete: { type: String, default: 'current-password' },
@@ -33,29 +39,3 @@ export default {
     },
 };
 </script>
-
-<style scoped>
-.pw {
-    position: relative;
-}
-
-.pw input {
-    width: 100%;
-    padding: 0.75rem 2.75rem 0.75rem 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
-}
-
-.pw-toggle {
-    position: absolute;
-    top: 50%;
-    right: 0.5rem;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1.1rem;
-    padding: 0.25rem;
-}
-</style>
