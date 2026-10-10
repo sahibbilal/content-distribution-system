@@ -11,8 +11,8 @@
         <section class="hero">
             <h1>Write once. Publish everywhere.</h1>
             <p>
-                Content Distribution System lets you post text, images, videos and datasets
-                to Facebook, LinkedIn, YouTube, TikTok and Kaggle from one place, now or on a schedule.
+                Content Distribution System lets you post text, images and videos
+                to Facebook, LinkedIn, YouTube and TikTok from one place, now or on a schedule.
             </p>
             <div class="hero-actions">
                 <router-link to="/login" class="btn btn-light">Login</router-link>
@@ -24,8 +24,10 @@
             <h2>What you can do</h2>
             <div class="grid">
                 <div v-for="f in features" :key="f.title" class="card">
-                    <div class="icon">{{ f.icon }}</div>
-                    <h3>{{ f.title }}</h3>
+                    <div class="card-head">
+                        <span class="icon">{{ f.icon }}</span>
+                        <h3>{{ f.title }}</h3>
+                    </div>
                     <p>{{ f.text }}</p>
                 </div>
             </div>
@@ -51,6 +53,8 @@
 
         <footer class="home-footer">
             &copy; {{ year }} Content Distribution System
+            &middot; <router-link to="/terms">Terms of Service</router-link>
+            &middot; <router-link to="/privacy">Privacy Policy</router-link>
         </footer>
     </div>
 </template>
@@ -61,13 +65,13 @@ export default {
     setup() {
         const features = [
             { icon: '🔗', title: 'Multi-platform posting', text: 'Send one post to several platforms at once instead of repeating yourself.' },
-            { icon: '🖼️', title: 'Text, images, video, datasets', text: 'Attach media and datasets, with each platform receiving the format it supports.' },
+            { icon: '🖼️', title: 'Text, images, video', text: 'Attach media with each platform receiving the format it supports.' },
             { icon: '⏰', title: 'Scheduled posting', text: 'Pick a date and time. Scheduled posts are published automatically by a background queue.' },
             { icon: '🔌', title: 'Platform management', text: 'Connect, test and disconnect your social accounts from a single page.' },
             { icon: '📜', title: 'Post history', text: 'See what was published, where, and whether each platform succeeded or failed.' },
             { icon: '🔒', title: 'Secure by design', text: 'Token-based authentication, and platform credentials are stored encrypted.' },
         ];
-        const platforms = ['Facebook', 'LinkedIn', 'YouTube', 'TikTok', 'Kaggle'];
+        const platforms = ['Facebook', 'LinkedIn', 'YouTube', 'TikTok'];
         return { features, platforms, year: new Date().getFullYear() };
     },
 };
@@ -101,11 +105,13 @@ export default {
 .section h2 { margin-bottom: 1.5rem; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; text-align: left; }
 .card { padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); background: #fff; }
-.card .icon { font-size: 1.75rem; margin-bottom: 0.5rem; }
-.card h3 { margin-bottom: 0.5rem; }
+.card-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; }
+.card .icon { font-size: 1.5rem; line-height: 1; }
+.card h3 { margin: 0; }
 .card p { color: #555; line-height: 1.5; }
 .chips { display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; }
 .chip { padding: 0.5rem 1.25rem; background: #fff; border-radius: 999px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); font-weight: 600; }
 .steps { max-width: 520px; margin: 0 auto 2rem; text-align: left; line-height: 2; }
 .home-footer { padding: 1.5rem; text-align: center; color: #888; background: #f5f5f5; }
+.home-footer a { color: #667eea; text-decoration: none; }
 </style>

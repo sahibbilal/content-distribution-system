@@ -70,12 +70,6 @@ export default {
                 icon: '🎵',
                 description: 'Short-form video content platform',
             },
-            {
-                type: 'kaggle',
-                name: 'Kaggle',
-                icon: '📊',
-                description: 'Data science and machine learning platform',
-            },
         ];
 
         const loadPlatforms = async () => {

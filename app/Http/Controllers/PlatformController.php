@@ -30,7 +30,7 @@ class PlatformController extends Controller
             'credentials' => 'required|array',
         ]);
 
-        $allowedPlatforms = ['facebook', 'linkedin', 'youtube', 'tiktok', 'kaggle'];
+        $allowedPlatforms = ['facebook', 'linkedin', 'youtube', 'tiktok'];
         
         if (!in_array($platformType, $allowedPlatforms)) {
             return response()->json(['error' => 'Invalid platform type'], 400);
@@ -92,7 +92,7 @@ class PlatformController extends Controller
             'credentials' => 'sometimes|array',
         ]);
 
-        $allowedPlatforms = ['facebook', 'linkedin', 'youtube', 'tiktok', 'kaggle'];
+        $allowedPlatforms = ['facebook', 'linkedin', 'youtube', 'tiktok'];
 
         if (!in_array($platformType, $allowedPlatforms)) {
             return response()->json(['error' => 'Invalid platform type'], 400);

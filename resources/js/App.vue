@@ -50,7 +50,7 @@
 </template>
 
 <script>
-import { computed, ref, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
@@ -58,7 +58,11 @@ export default {
     name: 'App',
     setup() {
         const router = useRouter();
-        const isAuthenticated = computed(() => !!localStorage.getItem('token'));
+        // localStorage isn't reactive, so re-check the token after every navigation
+        const isAuthenticated = ref(!!localStorage.getItem('token'));
+        router.afterEach(() => {
+            isAuthenticated.value = !!localStorage.getItem('token');
+        });
         const sidebarCollapsed = ref(false);
 
         const toggleSidebar = () => {

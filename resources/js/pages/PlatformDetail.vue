@@ -243,53 +243,6 @@
                 </form>
             </div>
 
-            <!-- Kaggle Connection -->
-            <div v-else-if="platformType === 'kaggle'" class="connection-section">
-                <h3>Connect Kaggle</h3>
-                <form @submit.prevent="handleConnect" class="credentials-form">
-                    <div class="form-group">
-                        <label>Kaggle Username</label>
-                        <input 
-                            v-model="credentials.KAGGLE_USERNAME" 
-                            type="text" 
-                            required 
-                            placeholder="your-kaggle-username"
-                        />
-                        <small>Your Kaggle username</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Kaggle API Token</label>
-                        <input 
-                            v-model="credentials.KAGGLE_API_TOKEN" 
-                            type="text" 
-                            required 
-                            placeholder="KGAT_xxxxxxxxxxxxx"
-                        />
-                        <small>
-                            Create an API token at 
-                            <a href="https://www.kaggle.com/settings/account" target="_blank">Kaggle Settings</a>
-                        </small>
-                    </div>
-                    <div class="form-actions">
-                        <button 
-                            type="button" 
-                            @click="testConnection" 
-                            class="btn-secondary"
-                            :disabled="testingConnection || !hasCredentials"
-                        >
-                            {{ testingConnection ? 'Testing...' : 'Test Connection' }}
-                        </button>
-                        <button 
-                            type="submit" 
-                            class="btn-primary"
-                            :disabled="!hasCredentials || connecting"
-                        >
-                            {{ connecting ? 'Connecting...' : 'Connect' }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-
             <!-- Test Result -->
             <div v-if="testResult" ref="testResultEl" class="test-result" :class="{ success: testResult.success, error: !testResult.success }">
                 <h4>{{ testResult.success ? '✓ Connection Successful' : '✗ Connection Failed' }}</h4>
@@ -342,7 +295,6 @@ export default {
                 facebook: { name: 'Facebook', icon: '📘', description: 'Social media platform' },
                 youtube: { name: 'YouTube', icon: '📺', description: 'Video sharing platform' },
                 tiktok: { name: 'TikTok', icon: '🎵', description: 'Short-form video platform' },
-                kaggle: { name: 'Kaggle', icon: '📊', description: 'Data science platform' },
             };
             return platforms[platformType] || { name: platformType, icon: '🔗', description: '' };
         });
@@ -360,8 +312,6 @@ export default {
                     return !!creds.credentials;
                 case 'tiktok':
                     return !!(creds.access_token && creds.open_id);
-                case 'kaggle':
-                    return !!(creds.KAGGLE_USERNAME && creds.KAGGLE_API_TOKEN);
                 default:
                     return false;
             }

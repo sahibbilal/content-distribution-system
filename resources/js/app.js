@@ -5,6 +5,8 @@ import App from './App.vue';
 import Login from './pages/Login.vue';
 import Register from './pages/Register.vue';
 import Home from './pages/Home.vue';
+import Terms from './pages/Terms.vue';
+import Privacy from './pages/Privacy.vue';
 import Dashboard from './pages/Dashboard.vue';
 import CreatePost from './pages/CreatePost.vue';
 import Settings from './pages/Settings.vue';
@@ -99,6 +101,8 @@ const routes = [
     { path: '/login', component: Login, meta: { requiresGuest: true } },
     { path: '/register', component: Register, meta: { requiresGuest: true } },
     { path: '/', component: Home, meta: { requiresGuest: true } },
+    { path: '/terms', component: Terms },
+    { path: '/privacy', component: Privacy },
     { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true } },
     { path: '/create-post', component: CreatePost, meta: { requiresAuth: true } },
     { path: '/settings', component: Settings, meta: { requiresAuth: true } },

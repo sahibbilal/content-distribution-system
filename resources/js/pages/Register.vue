@@ -47,6 +47,11 @@
                     <button type="submit" class="btn-primary" :disabled="loading || !canSubmit">
                         {{ loading ? 'Registering...' : 'Register' }}
                     </button>
+                    <p class="legal-note">
+                        By registering you agree to our
+                        <router-link to="/terms" target="_blank">Terms of Service</router-link> and
+                        <router-link to="/privacy" target="_blank">Privacy Policy</router-link>.
+                    </p>
                     <p class="auth-link">
                         Already have an account? <router-link to="/login">Login</router-link>
                     </p>
@@ -283,6 +288,17 @@ export default {
 .rule-icon {
     display: inline-block;
     width: 1.1em;
+}
+
+.legal-note {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    color: #777;
+    text-align: center;
+}
+
+.legal-note a {
+    color: #667eea;
 }
 
 .match {
