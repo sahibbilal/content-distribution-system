@@ -102,6 +102,10 @@ Route::get('/api/platforms/linkedin/oauth/callback', [\App\Http\Controllers\Link
 Route::get('/api/platforms/tiktok/oauth/callback', [\App\Http\Controllers\TikTokOAuthController::class, 'callback']);
 Route::get('/api/platforms/facebook/oauth/callback', [\App\Http\Controllers\FacebookOAuthController::class, 'callback']);
 
+// Email verification link (signed URL sent by Laravel's verification notification)
+Route::get('/email/verify/{id}/{hash}', [\App\Http\Controllers\AuthController::class, 'verifyEmail'])
+    ->name('verification.verify');
+
 Route::get('/{any}', function () {
     return view('app');
 })->where('any', '.*');

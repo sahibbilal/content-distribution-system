@@ -11,6 +11,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/facebook', [AuthController::class, 'facebookLogin']);
+    Route::post('/email/resend', [AuthController::class, 'resendVerification'])->middleware('throttle:6,1');
     
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);

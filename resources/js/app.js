@@ -54,6 +54,13 @@ axios.interceptors.request.use(
     }
 );
 
+// A login without "Remember me" ends when the browser session ends
+if (localStorage.getItem('token')
+    && localStorage.getItem('remember') !== '1'
+    && !sessionStorage.getItem('session_active')) {
+    localStorage.removeItem('token');
+}
+
 // Add token to requests if available (initial load)
 const token = localStorage.getItem('token');
 if (token) {
