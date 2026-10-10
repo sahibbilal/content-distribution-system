@@ -7,6 +7,7 @@ import Register from './pages/Register.vue';
 import Home from './pages/Home.vue';
 import Terms from './pages/Terms.vue';
 import Privacy from './pages/Privacy.vue';
+import Admin from './pages/Admin.vue';
 import Dashboard from './pages/Dashboard.vue';
 import CreatePost from './pages/CreatePost.vue';
 import Settings from './pages/Settings.vue';
@@ -61,6 +62,7 @@ if (localStorage.getItem('token')
     && localStorage.getItem('remember') !== '1'
     && !sessionStorage.getItem('session_active')) {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
 }
 
 // Add token to requests if available (initial load)
@@ -87,6 +89,7 @@ axios.interceptors.response.use(
         
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
+            localStorage.removeItem('user');
             delete axios.defaults.headers.common['Authorization'];
             if (window.location.pathname !== '/login') {
                 window.location.href = '/login';
@@ -104,6 +107,7 @@ const routes = [
     { path: '/terms', component: Terms },
     { path: '/privacy', component: Privacy },
     { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true } },
+    { path: '/admin', component: Admin, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/create-post', component: CreatePost, meta: { requiresAuth: true } },
     { path: '/settings', component: Settings, meta: { requiresAuth: true } },
     { path: '/platforms', component: Platforms, meta: { requiresAuth: true } },
@@ -121,8 +125,17 @@ router.beforeEach((to, from, next) => {
     const token = localStorage.getItem('token');
     const isAuthenticated = !!token;
 
+    let isAdmin = false;
+    try {
+        isAdmin = !!JSON.parse(localStorage.getItem('user') || 'null')?.is_admin;
+    } catch (e) {
+        // ignore a corrupt stored user
+    }
+
     if (to.meta.requiresAuth && !isAuthenticated) {
         next('/login');
+    } else if (to.meta.requiresAdmin && !isAdmin) {
+        next('/dashboard');
     } else if (to.meta.requiresGuest && isAuthenticated) {
         next('/dashboard');
     } else {
