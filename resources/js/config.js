@@ -6,4 +6,6 @@ export const contactEmail = 'support@bilalmahmood.dev';
 // Fill these in with real account details; while empty, the page tells visitors to contact you instead.
 // Example:
 //   { name: 'JazzCash', details: [['Account title', '...'], ['Number', '...']] }
-export const paymentMethods = [];
+export const paymentMethods = [
+    { name: 'JazzCash', details: [['Account title', 'Bilal Mahmood'], ['Number', '+923039550210']] }
+];
