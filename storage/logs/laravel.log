@@ -2068,3 +2068,58 @@
 [2026-10-10 18:00:06] local.INFO: LinkedIn token exchange attempt {"redirect_uri":"https://content-distribution-system.ddev.site/api/platforms/linkedin/oauth/callback","client_id_length":14,"client_secret_length":33,"client_id_starts_with":"77dt..."} 
 [2026-10-10 18:00:11] local.INFO: Extracted person URN from ID token {"urn":"oLIqSz36Ad"} 
 [2026-10-10 18:00:11] local.INFO: LinkedIn OAuth connection successful {"user_id":1,"platform_id":2} 
+[2026-10-10 21:00:48] local.INFO: TikTok OAuth connection successful {"user_id":3,"platform_id":4,"open_id":"-000EC3cOJq8BnoJxaaztJEkhA-gjDySk6kV","has_user_info":true} 
+[2026-10-10 21:01:54] local.ERROR: PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 at /var/www/html/vendor/psy/psysh/src/Exception/ParseErrorException.php:44)
+[stacktrace]
+#0 /var/www/html/vendor/psy/psysh/src/CodeCleaner.php(488): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 /var/www/html/vendor/psy/psysh/src/CodeCleaner.php(269): Psy\\CodeCleaner->parse('<?php \\\\=App\\\\Mod...', false)
+#2 /var/www/html/vendor/psy/psysh/src/Shell.php(985): Psy\\CodeCleaner->clean(Array, false)
+#3 /var/www/html/vendor/psy/psysh/src/Shell.php(1018): Psy\\Shell->addCode('\\\\=App\\\\Models\\\\Us...', true)
+#4 /var/www/html/vendor/psy/psysh/src/Shell.php(1562): Psy\\Shell->setCode('\\\\=App\\\\Models\\\\Us...', true)
+#5 /var/www/html/vendor/laravel/tinker/src/Console/TinkerCommand.php(76): Psy\\Shell->execute('\\\\=App\\\\Models\\\\Us...')
+#6 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(95): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/Container.php(696): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 /var/www/html/vendor/laravel/framework/src/Illuminate/Console/Command.php(213): Illuminate\\Container\\Container->call(Array)
+#12 /var/www/html/vendor/symfony/console/Command/Command.php(341): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 /var/www/html/vendor/laravel/framework/src/Illuminate/Console/Command.php(182): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 /var/www/html/vendor/symfony/console/Application.php(1102): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 /var/www/html/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 /var/www/html/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 /var/www/html/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 /var/www/html/artisan(14): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 {main}
+"} 
+[2026-10-10 21:02:08] local.ERROR: PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 at /var/www/html/vendor/psy/psysh/src/Exception/ParseErrorException.php:44)
+[stacktrace]
+#0 /var/www/html/vendor/psy/psysh/src/CodeCleaner.php(488): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 /var/www/html/vendor/psy/psysh/src/CodeCleaner.php(269): Psy\\CodeCleaner->parse('<?php \\\\=App\\\\Mod...', false)
+#2 /var/www/html/vendor/psy/psysh/src/Shell.php(985): Psy\\CodeCleaner->clean(Array, false)
+#3 /var/www/html/vendor/psy/psysh/src/Shell.php(1018): Psy\\Shell->addCode('\\\\=App\\\\Models\\\\Us...', true)
+#4 /var/www/html/vendor/psy/psysh/src/Shell.php(1562): Psy\\Shell->setCode('\\\\=App\\\\Models\\\\Us...', true)
+#5 /var/www/html/vendor/laravel/tinker/src/Console/TinkerCommand.php(76): Psy\\Shell->execute('\\\\=App\\\\Models\\\\Us...')
+#6 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(95): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 /var/www/html/vendor/laravel/framework/src/Illuminate/Container/Container.php(696): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 /var/www/html/vendor/laravel/framework/src/Illuminate/Console/Command.php(213): Illuminate\\Container\\Container->call(Array)
+#12 /var/www/html/vendor/symfony/console/Command/Command.php(341): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 /var/www/html/vendor/laravel/framework/src/Illuminate/Console/Command.php(182): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 /var/www/html/vendor/symfony/console/Application.php(1102): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 /var/www/html/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 /var/www/html/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 /var/www/html/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 /var/www/html/artisan(14): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 {main}
+"} 
+[2026-10-10 21:05:21] local.ERROR: TikTok publish failed: Failed to upload video chunk 1: null {"platform_type":"tiktok","exception":"Exception"} 
+[2026-10-10 21:05:21] local.ERROR: Failed to publish to tiktok: Failed to upload video chunk 1: null {"platform_id":4,"platform_type":"tiktok","exception":"Exception"} 
+[2026-10-10 21:06:45] local.ERROR: TikTok publish failed: Failed to upload video chunk 1: null {"platform_type":"tiktok","exception":"Exception"} 
+[2026-10-10 21:06:45] local.ERROR: Failed to publish to tiktok: Failed to upload video chunk 1: null {"platform_id":4,"platform_type":"tiktok","exception":"Exception"} 
+[2026-10-10 21:21:57] local.ERROR: TikTok photo publish failed: TikTok API error (app_version_check_failed): Please notice the user to update their TikTok to the latest version to enable this functionality {"platform_type":"tiktok","exception":"Exception"} 
+[2026-10-10 21:21:58] local.ERROR: Failed to publish to tiktok: TikTok API error (app_version_check_failed): Please notice the user to update their TikTok to the latest version to enable this functionality {"platform_id":4,"platform_type":"tiktok","exception":"Exception"} 
+[2026-10-10 21:33:27] local.ERROR: TikTok photo publish failed: TikTok API error (url_ownership_unverified): Please review our URL ownership verification rules at https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide/#pull_from_url {"platform_type":"tiktok","exception":"Exception"} 
+[2026-10-10 21:33:27] local.ERROR: Failed to publish to tiktok: TikTok API error (url_ownership_unverified): Please review our URL ownership verification rules at https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide/#pull_from_url {"platform_id":4,"platform_type":"tiktok","exception":"Exception"} 

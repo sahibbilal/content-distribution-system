@@ -5,48 +5,78 @@ namespace App\Http\Controllers;
 use App\Models\Media;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class MediaController extends Controller
 {
+    /**
+     * Allowed uploads, keyed by the MIME type detected from the file's actual bytes
+     * (never the client-supplied name or Content-Type). The stored extension comes from here too.
+     */
+    private const ALLOWED = [
+        'image/jpeg' => ['type' => 'image', 'ext' => 'jpg'],
+        'image/png' => ['type' => 'image', 'ext' => 'png'],
+        'image/gif' => ['type' => 'image', 'ext' => 'gif'],
+        'image/webp' => ['type' => 'image', 'ext' => 'webp'],
+        'image/bmp' => ['type' => 'image', 'ext' => 'bmp'],
+        'video/mp4' => ['type' => 'video', 'ext' => 'mp4'],
+        'video/quicktime' => ['type' => 'video', 'ext' => 'mov'],
+        'video/webm' => ['type' => 'video', 'ext' => 'webm'],
+        'video/x-msvideo' => ['type' => 'video', 'ext' => 'avi'],
+        'video/x-ms-wmv' => ['type' => 'video', 'ext' => 'wmv'],
+        'video/x-flv' => ['type' => 'video', 'ext' => 'flv'],
+        'video/x-matroska' => ['type' => 'video', 'ext' => 'mkv'],
+    ];
+
+    private const MAX_IMAGE_PIXELS = 25_000_000; // guards against decompression bombs
+    private const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+
     public function upload(Request $request)
     {
         $request->validate([
             'file' => 'required|file|max:102400', // 100MB max
-            'type' => 'nullable|in:image,video,dataset',
         ]);
 
         $file = $request->file('file');
-        $extension = strtolower($file->getClientOriginalExtension());
 
-        $type = $request->input('type') ?? $this->detectType($file->getMimeType());
+        if (!$file->isValid()) {
+            return $this->reject('The upload failed or was corrupted. Please try again.');
+        }
 
-        if ($type === 'image') {
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
-            if (!in_array($extension, $allowedExtensions)) {
-                return response()->json([
-                    'error' => 'Unsupported image file type: .' . $extension,
-                ], 400);
+        // Content-based detection (finfo reads the file's magic bytes)
+        $mime = $file->getMimeType();
+        $kind = self::ALLOWED[$mime] ?? null;
+
+        if (!$kind) {
+            return $this->reject('This file is not a supported image or video. Its real content type is ' . ($mime ?: 'unknown') . ', whatever the file name says.');
+        }
+
+        if ($kind['type'] === 'image') {
+            // Must also parse as a real image, and not be absurdly large
+            $info = @getimagesize($file->getRealPath());
+            if ($info === false || ($info['mime'] ?? null) !== $mime || $info[0] < 1 || $info[1] < 1) {
+                return $this->reject('This image file is corrupt or not a valid ' . strtoupper($kind['ext']) . '.');
             }
-        } elseif ($type === 'video') {
-            $allowedExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'];
-            if (!in_array($extension, $allowedExtensions)) {
-                return response()->json([
-                    'error' => 'Unsupported video file type: .' . $extension,
-                ], 400);
+            if ($info[0] * $info[1] > self::MAX_IMAGE_PIXELS || $file->getSize() > self::MAX_IMAGE_BYTES) {
+                return $this->reject('This image is too large (max 20MB and 25 megapixels).');
+            }
+            // Fully decode it: catches truncated or tampered files whose header still looks valid
+            if (!@imagecreatefromstring(file_get_contents($file->getRealPath()))) {
+                return $this->reject('This image file is corrupt or not a valid ' . strtoupper($kind['ext']) . '.');
             }
         }
 
-        $filename = uniqid() . '_' . time() . '.' . $file->getClientOriginalExtension();
+        $filename = Str::uuid() . '.' . $kind['ext'];
         $path = $file->storeAs('uploads', $filename, 'public');
 
         $media = Media::create([
             'user_id' => $request->user()->id,
             'filename' => $filename,
-            'original_filename' => $file->getClientOriginalName(),
-            'mime_type' => $file->getMimeType(),
+            'original_filename' => Str::limit(basename($file->getClientOriginalName()), 200, ''),
+            'mime_type' => $mime,
             'size' => $file->getSize(),
             'path' => $path,
-            'type' => $request->type ?? $this->detectType($file->getMimeType(), $extension),
+            'type' => $kind['type'],
         ]);
 
         return response()->json([
@@ -57,17 +87,11 @@ class MediaController extends Controller
         ], 201);
     }
 
-    private function detectType($mimeType, $extension = null)
+    private function reject(string $message)
     {
-        if (str_starts_with($mimeType, 'image/')) {
-            return 'image';
-        } elseif (str_starts_with($mimeType, 'video/')) {
-            return 'video';
-        } elseif ($extension && in_array(strtolower($extension), ['ipynb', 'csv', 'json', 'parquet', 'xlsx', 'xls', 'tsv', 'zip', 'tar', 'gz'])) {
-            return 'dataset';
-        } else {
-            return 'dataset';
-        }
+        return response()->json([
+            'error' => $message,
+            'allowed_types' => array_values(array_unique(array_column(self::ALLOWED, 'ext'))),
+        ], 422);
     }
 }
-

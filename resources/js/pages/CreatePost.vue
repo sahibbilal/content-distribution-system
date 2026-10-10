@@ -91,8 +91,8 @@ export default {
         };
 
         const getFileAcceptTypes = () => {
-            // Images, videos, and common dataset formats
-            return 'image/*,video/*,.csv,.json,.zip,.xlsx,.xls';
+            // Images and videos only (the server verifies the real file content)
+            return 'image/jpeg,image/png,image/gif,image/webp,image/bmp,video/*';
         };
 
         const handleFileUpload = async (event) => {
