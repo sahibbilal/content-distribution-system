@@ -62,7 +62,7 @@ export default {
                 const response = await axios.post('/auth/register', form.value);
                 localStorage.setItem('token', response.data.token);
                 axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-                router.push('/');
+                router.push('/dashboard');
             } catch (err) {
                 if (err.response?.data?.errors) {
                     // Handle Laravel validation errors

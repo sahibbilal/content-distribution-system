@@ -230,7 +230,7 @@ export default {
                 
                 // Only redirect on complete success
                 setTimeout(() => {
-                    router.push('/');
+                    router.push('/dashboard');
                 }, 2000);
             } catch (err) {
                 // Handle HTTP errors (422, 500, etc.)

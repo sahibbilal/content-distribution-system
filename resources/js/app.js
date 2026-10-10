@@ -4,6 +4,7 @@ import axios from 'axios';
 import App from './App.vue';
 import Login from './pages/Login.vue';
 import Register from './pages/Register.vue';
+import Home from './pages/Home.vue';
 import Dashboard from './pages/Dashboard.vue';
 import CreatePost from './pages/CreatePost.vue';
 import Settings from './pages/Settings.vue';
@@ -90,11 +91,13 @@ axios.interceptors.response.use(
 const routes = [
     { path: '/login', component: Login, meta: { requiresGuest: true } },
     { path: '/register', component: Register, meta: { requiresGuest: true } },
-    { path: '/', component: Dashboard, meta: { requiresAuth: true } },
+    { path: '/', component: Home, meta: { requiresGuest: true } },
+    { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true } },
     { path: '/create-post', component: CreatePost, meta: { requiresAuth: true } },
     { path: '/settings', component: Settings, meta: { requiresAuth: true } },
     { path: '/platforms', component: Platforms, meta: { requiresAuth: true } },
     { path: '/platforms/:platform', component: PlatformDetail, meta: { requiresAuth: true } },
+    { path: '/:pathMatch(.*)*', redirect: '/' },
 ];
 
 const router = createRouter({
@@ -110,7 +113,7 @@ router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth && !isAuthenticated) {
         next('/login');
     } else if (to.meta.requiresGuest && isAuthenticated) {
-        next('/');
+        next('/dashboard');
     } else {
         next();
     }

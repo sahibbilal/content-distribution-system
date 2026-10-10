@@ -44,7 +44,7 @@ export default {
                 const response = await axios.post('/auth/login', form.value);
                 localStorage.setItem('token', response.data.token);
                 axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-                router.push('/');
+                router.push('/dashboard');
             } catch (err) {
                 if (err.response?.data?.errors) {
                     const errors = err.response.data.errors;

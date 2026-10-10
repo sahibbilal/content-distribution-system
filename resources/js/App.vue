@@ -11,7 +11,7 @@
                     </button>
                 </div>
                 <nav class="sidebar-nav">
-                    <router-link to="/" class="nav-item" @click="closeSidebarMobile">
+                    <router-link to="/dashboard" class="nav-item" @click="closeSidebarMobile">
                         <span class="nav-icon">📊</span>
                         <span class="nav-text">Dashboard</span>
                     </router-link>
