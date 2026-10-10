@@ -71,7 +71,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           source: "."
-          target: "domains/wpcorex.com/public_html/cds"
+          target: ${{ vars.DEPLOY_PATH_DEV }}
           strip_components: 0
           rm: false
           exclude: |
@@ -108,11 +108,12 @@ jobs:
           script: |
             set -e
             echo "=== Check and Install PHP Dependencies ==="
-            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+            DEPLOY_PATH="${{ vars.DEPLOY_PATH_DEV }}"
             cd "$DEPLOY_PATH" || {
               echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
               exit 1
             }
+            mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
             echo "Current directory: $(pwd)"
             echo ""
             echo "=== Verifying composer.json exists ==="
@@ -168,7 +169,7 @@ jobs:
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           command_timeout: 120s
           script: |
-            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+            DEPLOY_PATH="${{ vars.DEPLOY_PATH_DEV }}"
             cd "$DEPLOY_PATH" || exit 1
             echo "=== Running Database Migrations ==="
             # Check database connection first
@@ -196,7 +197,7 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD_DEV }}
           port: ${{ vars.SSH_PORT_DEV || 22 }}
           script: |
-            DEPLOY_PATH="domains/wpcorex.com/public_html/cds"
+            DEPLOY_PATH="${{ vars.DEPLOY_PATH_DEV }}"
             cd "$DEPLOY_PATH" || exit 1
             echo "=== Clearing Laravel caches ==="
             # Clear view cache to ensure fresh Vite tags
