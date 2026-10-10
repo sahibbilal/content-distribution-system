@@ -3,6 +3,7 @@
         <header class="home-nav">
             <BrandLogo :size="44" pill />
             <nav>
+                <a href="#pricing" class="link">Pricing</a>
                 <router-link to="/login" class="link">Login</router-link>
                 <router-link to="/register" class="btn btn-light">Get started</router-link>
             </nav>
@@ -40,7 +41,40 @@
             </div>
         </section>
 
-        <section class="section">
+        <section id="pricing" class="section">
+            <h2>Pricing</h2>
+            <p class="section-sub">Simple monthly plans. Both let you post to all connected platforms.</p>
+            <div class="plans">
+                <div v-for="plan in plans" :key="plan.name" class="plan" :class="{ featured: plan.featured }">
+                    <h3>{{ plan.name }}</h3>
+                    <div class="price">Rs {{ plan.price }}<span> / month</span></div>
+                    <ul>
+                        <li v-for="item in plan.features" :key="item">✓ {{ item }}</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="payment">
+                <h3>How to join</h3>
+                <ol>
+                    <li><router-link to="/register">Create your account</router-link> and verify your email.</li>
+                    <li>Pay for the plan you want using one of the methods below.</li>
+                    <li>Email your payment proof and the email you registered with to
+                        <a :href="'mailto:' + contactEmail">{{ contactEmail }}</a>. We activate your plan once the payment is confirmed.</li>
+                </ol>
+                <div v-if="paymentMethods.length" class="methods">
+                    <div v-for="m in paymentMethods" :key="m.name" class="method">
+                        <strong>{{ m.name }}</strong>
+                        <div v-for="[label, value] in m.details" :key="label">{{ label }}: {{ value }}</div>
+                    </div>
+                </div>
+                <p v-else class="section-sub">
+                    Contact <a :href="'mailto:' + contactEmail">{{ contactEmail }}</a> for payment details.
+                </p>
+            </div>
+        </section>
+
+        <section class="section section-alt">
             <h2>How it works</h2>
             <ol class="steps">
                 <li><strong>Connect</strong> your accounts on the Platforms page.</li>
@@ -61,6 +95,7 @@
 
 <script>
 import BrandLogo from '../components/BrandLogo.vue';
+import { contactEmail, paymentMethods } from '../config.js';
 
 export default {
     components: { BrandLogo },
@@ -75,7 +110,29 @@ export default {
             { icon: '🔒', title: 'Secure by design', text: 'Token-based authentication, and platform credentials are stored encrypted.' },
         ];
         const platforms = ['Facebook', 'LinkedIn', 'YouTube', 'TikTok'];
-        return { features, platforms, year: new Date().getFullYear() };
+        const plans = [
+            {
+                name: 'Standard',
+                price: '500',
+                features: [
+                    'Post to all connected platforms',
+                    'Facebook, LinkedIn, YouTube and TikTok',
+                    'Text, image and video posts',
+                    'Scheduled posting and post history',
+                    'You write your own content',
+                ],
+            },
+            {
+                name: 'Standard + AI',
+                price: '2,000',
+                featured: true,
+                features: [
+                    'Everything in Standard',
+                    'AI-generated content (coming soon)',
+                ],
+            },
+        ];
+        return { features, platforms, plans, contactEmail, paymentMethods, year: new Date().getFullYear() };
     },
 };
 </script>
@@ -113,6 +170,20 @@ export default {
 .card p { color: #555; line-height: 1.5; }
 .chips { display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; }
 .chip { padding: 0.5rem 1.25rem; background: #fff; border-radius: 999px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); font-weight: 600; }
+.section-sub { color: #666; margin-bottom: 1.5rem; }
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; max-width: 640px; margin: 0 auto 2rem; text-align: left; }
+.plan { padding: 1.75rem; border: 2px solid #e5e7f0; border-radius: 10px; background: #fff; }
+.plan.featured { border-color: #667eea; box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25); }
+.plan h3 { margin-bottom: 0.5rem; }
+.price { font-size: 2rem; font-weight: bold; color: #667eea; margin-bottom: 1rem; }
+.price span { font-size: 1rem; font-weight: normal; color: #888; }
+.plan ul { list-style: none; line-height: 1.9; color: #444; }
+.payment { max-width: 640px; margin: 0 auto; padding: 1.5rem; background: #f5f5f5; border-radius: 10px; text-align: left; }
+.payment h3 { margin-bottom: 0.75rem; }
+.payment ol { margin: 0 0 1rem 1.25rem; line-height: 1.7; }
+.payment a { color: #667eea; }
+.methods { display: grid; gap: 0.75rem; }
+.method { padding: 0.75rem 1rem; background: #fff; border-radius: 6px; line-height: 1.6; }
 .steps { max-width: 520px; margin: 0 auto 2rem; text-align: left; line-height: 2; }
 .home-footer { padding: 1.5rem; text-align: center; color: #888; background: #f5f5f5; }
 .home-footer a { color: #667eea; text-decoration: none; }

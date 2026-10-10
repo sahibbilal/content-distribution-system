@@ -17,6 +17,7 @@
 
 <script>
 import BrandLogo from './BrandLogo.vue';
+import { contactEmail } from '../config.js';
 
 export default {
     components: { BrandLogo },
@@ -26,8 +27,8 @@ export default {
         updated: { type: String, default: 'October 11, 2026' },
     },
     setup() {
-        // Single place to change the public contact address used in the legal pages
-        return { contactEmail: 'support@bilalmahmood.dev' };
+        // Contact address comes from config.js
+        return { contactEmail };
     },
 };
 </script>
