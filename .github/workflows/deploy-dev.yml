@@ -17,66 +17,88 @@ jobs:
     environment: wpcorex-dev-env
 
     steps:
+      # Full history so we can diff against the commit that was last deployed
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Build Vue.js frontend locally (Hostinger doesn't support Node.js)
-      # The built assets (public/build/) will be deployed to the server
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install Node Dependencies
-        run: npm ci
-
-      - name: Build Frontend Assets
-        run: npm run build
-        
-      - name: Verify Build Output
-        run: |
-          echo "=== Checking build output ==="
-          if [ -d "public/build" ]; then
-            echo "✓ public/build directory exists"
-            if [ -f "public/build/manifest.json" ]; then
-              echo "✓ manifest.json found"
-              echo "Build files:"
-              ls -la public/build/ | head -10
-              echo ""
-              echo "=== Verifying build files will be deployed ==="
-              echo "Checking if files exist before deployment:"
-              find public/build -type f | head -10
-              echo ""
-              echo "Total files in build directory:"
-              find public/build -type f | wc -l
-            else
-              echo "ERROR: manifest.json NOT found!"
-              exit 1
-            fi
-          else
-            echo "ERROR: public/build directory NOT found!"
-            exit 1
-          fi
-
-      - name: Deploy Files via SSH
+      - name: Prepare SSH
         if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.DEPLOY_PATH_DEV }}
         env:
           SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
           SSH_HOST: ${{ vars.SSH_HOST_DEV }}
           SSH_USER: ${{ vars.SSH_USERNAME_DEV }}
           SSH_PORT: ${{ vars.SSH_PORT_DEV || 22 }}
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH_DEV }}
         run: |
-          set -e
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # No --delete: server-only files (.env*, uploads, logs) are never removed
-          rsync -az --no-perms --no-owner --no-group \
-            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=accept-new" \
+          printf 'Host deploy\n  HostName %s\n  User %s\n  Port %s\n  IdentityFile ~/.ssh/deploy_key\n  IdentitiesOnly yes\n  StrictHostKeyChecking accept-new\n  ServerAliveInterval 30\n' \
+            "$SSH_HOST" "$SSH_USER" "$SSH_PORT" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      # The server records the commit it last deployed. If no frontend file changed since then
+      # (and a build is already on the server), the npm install and build are skipped.
+      - name: Detect what changed
+        id: changes
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.DEPLOY_PATH_DEV }}
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH_DEV }}
+        run: |
+          build=true
+          LAST=$(ssh deploy "cat '$DEPLOY_PATH/.deploy-sha' 2>/dev/null" || true)
+          if [ -n "$LAST" ] && git cat-file -e "$LAST^{commit}" 2>/dev/null \
+             && ssh deploy "test -f '$DEPLOY_PATH/public/build/manifest.json'"; then
+            echo "Last deployed commit: $LAST"
+            if git diff --name-only "$LAST" "$GITHUB_SHA" | grep -qE '^(resources/(js|css)/|package(-lock)?\.json$|vite\.config\.js$)'; then
+              echo "Frontend files changed: building assets"
+            else
+              build=false
+              echo "No frontend changes since the last deploy: skipping npm install and build"
+            fi
+          else
+            echo "No usable previous deploy record: doing a full build"
+          fi
+          echo "frontend=$build" >> "$GITHUB_OUTPUT"
+
+      # Build Vue.js frontend here (the host has no Node.js); public/build/ is then synced to the server
+      - name: Setup Node.js
+        if: ${{ steps.changes.outputs.frontend != 'false' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        if: ${{ steps.changes.outputs.frontend != 'false' }}
+        run: npm ci --no-audit --no-fund
+
+      - name: Build Frontend Assets
+        if: ${{ steps.changes.outputs.frontend != 'false' }}
+        run: npm run build
+
+      - name: Verify Build Output
+        if: ${{ steps.changes.outputs.frontend != 'false' }}
+        run: |
+          if [ ! -f public/build/manifest.json ]; then
+            echo "ERROR: public/build/manifest.json NOT found!"
+            exit 1
+          fi
+          echo "Build OK: $(find public/build -type f | wc -l) files"
+
+      - name: Deploy to server
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.DEPLOY_PATH_DEV }}
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH_DEV }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          set -eo pipefail
+          # --checksum: a fresh checkout has new timestamps on every file, so compare content and
+          # send only files that really changed.
+          # No --delete: server-only files (.env*, uploads, logs) are never removed.
+          rsync -az --checksum --stats --no-perms --no-owner --no-group \
+            -e ssh \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='node_modules' \
@@ -87,6 +109,7 @@ jobs:
             --exclude='storage/framework/views' \
             --exclude='.env' \
             --exclude='.env.*' \
+            --exclude='.deploy-sha' \
             --exclude='.DS_Store' \
             --exclude='Thumbs.db' \
             --exclude='resources/js' \
@@ -94,129 +117,41 @@ jobs:
             --exclude='package.json' \
             --exclude='package-lock.json' \
             --exclude='vite.config.js' \
-            ./ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"
+            ./ "deploy:$DEPLOY_PATH/" | grep -E 'Number of (regular )?files|Total transferred file size'
 
-      - name: Install PHP Dependencies (if needed)
-        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.DEPLOY_PATH_DEV }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ vars.SSH_HOST_DEV }}
-          username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          password: ${{ secrets.SSH_PASSWORD_DEV }}
-          port: ${{ vars.SSH_PORT_DEV || 22 }}
-          command_timeout: 300s
-          script: |
-            set -e
-            echo "=== Check and Install PHP Dependencies ==="
-            DEPLOY_PATH="${{ vars.DEPLOY_PATH_DEV }}"
-            cd "$DEPLOY_PATH" || {
-              echo "ERROR: Failed to change to directory: $DEPLOY_PATH"
-              exit 1
-            }
-            mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
-            echo "Current directory: $(pwd)"
-            echo ""
-            echo "=== Verifying composer.json exists ==="
-            if [ ! -f composer.json ]; then
-              echo "ERROR: composer.json not found in $DEPLOY_PATH!"
-              exit 1
-            fi
-            echo "✓ composer.json found"
-            echo ""
-            # Check if vendor directory exists and is valid
-            if [ -d vendor ] && [ -f vendor/autoload.php ]; then
-              echo "=== Vendor directory exists, checking if update is needed ==="
-              # Check if composer.lock exists and compare with installed packages
-              if [ -f composer.lock ]; then
-                echo "Checking if dependencies need updating..."
-                # Composer install is idempotent - it only installs/updates what's needed
-                composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist || {
-                  echo "WARNING: Composer install with --no-dev failed, trying without it..."
-                  composer install --optimize-autoloader --no-interaction --prefer-dist
-                }
-                echo "✓ Dependencies checked/updated (only if needed)"
-              else
-                echo "composer.lock not found, running full install..."
-                composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist || {
-                  echo "WARNING: Composer install with --no-dev failed, trying without it..."
-                  composer install --optimize-autoloader --no-interaction --prefer-dist
-                }
-              fi
-            else
-              echo "=== Vendor directory not found, running fresh install ==="
-              composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist || {
-                echo "WARNING: Composer install with --no-dev failed, trying without it..."
-                composer install --optimize-autoloader --no-interaction --prefer-dist
-              }
-              echo "✓ Fresh installation completed"
-            fi
-            echo ""
-            echo "=== Verifying installation ==="
-            if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
-              echo "ERROR: vendor directory was not created properly!"
-              exit 1
-            fi
-            echo "✓ Composer dependencies are ready"
+          ssh deploy "DEPLOY_PATH='$DEPLOY_PATH' GIT_SHA='$GIT_SHA' bash -s" <<'REMOTE'
+          set -e
+          cd "$DEPLOY_PATH"
+          mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+          [ -f composer.json ] || { echo "ERROR: composer.json not found in $DEPLOY_PATH"; exit 1; }
 
-      - name: Run Database Migrations
-        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.DEPLOY_PATH_DEV }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ vars.SSH_HOST_DEV }}
-          username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          password: ${{ secrets.SSH_PASSWORD_DEV }}
-          port: ${{ vars.SSH_PORT_DEV || 22 }}
-          command_timeout: 120s
-          script: |
-            DEPLOY_PATH="${{ vars.DEPLOY_PATH_DEV }}"
-            cd "$DEPLOY_PATH" || exit 1
-            echo "=== Running Database Migrations ==="
-            # Check database connection first
-            php artisan db:show || echo "WARNING: db:show failed, but continuing..."
-            echo ""
-            echo "=== Running migrations ==="
-            php artisan migrate --force || {
-              echo "ERROR: Migration failed!"
-              echo "Checking migration status:"
-              php artisan migrate:status || true
-              exit 1
-            }
-            echo "✓ Migrations completed successfully"
-            echo ""
-            echo "=== Migration status ==="
-            php artisan migrate:status || echo "WARNING: Could not show migration status"
+          # PHP packages: only when composer.lock changed (or vendor is missing)
+          NEW_LOCK=$(sha256sum composer.lock 2>/dev/null | cut -d' ' -f1)
+          OLD_LOCK=$(cat vendor/.composer-lock.sha256 2>/dev/null || true)
+          if [ ! -f vendor/autoload.php ] || [ "$NEW_LOCK" != "$OLD_LOCK" ]; then
+            echo "Installing PHP packages (composer.lock changed or vendor missing)"
+            composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
+              || composer install --optimize-autoloader --no-interaction --prefer-dist
+            echo "$NEW_LOCK" > vendor/.composer-lock.sha256
+          else
+            echo "composer.lock unchanged: skipping composer install"
+          fi
+          [ -f vendor/autoload.php ] || { echo "ERROR: vendor/autoload.php missing"; exit 1; }
 
-      - name: Clear Laravel Caches
-        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.DEPLOY_PATH_DEV }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ vars.SSH_HOST_DEV }}
-          username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          password: ${{ secrets.SSH_PASSWORD_DEV }}
-          port: ${{ vars.SSH_PORT_DEV || 22 }}
-          script: |
-            DEPLOY_PATH="${{ vars.DEPLOY_PATH_DEV }}"
-            cd "$DEPLOY_PATH" || exit 1
-            echo "=== Clearing Laravel caches ==="
-            # Clear view cache to ensure fresh Vite tags
-            # public/storage is gitignored (not rsynced), so uploaded media 404s without this link
-            [ -e public/storage ] || php artisan storage:link || echo "WARNING: storage:link failed"
-            php artisan view:clear || echo "WARNING: view:clear failed"
-            php artisan config:clear || echo "WARNING: config:clear failed"
-            php artisan cache:clear || echo "WARNING: cache:clear failed"
-            echo "✓ Caches cleared"
+          # public/storage is gitignored (not rsynced), so uploaded media 404s without this link
+          [ -e public/storage ] || php artisan storage:link || echo "WARNING: storage:link failed"
+
+          php artisan migrate --force || { echo "ERROR: migration failed"; php artisan migrate:status || true; exit 1; }
+
+          # View and config caches only; the application cache (e.g. OAuth state tokens) is left alone
+          php artisan view:clear
+          php artisan config:clear
+
+          echo "$GIT_SHA" > .deploy-sha
+          echo "Deployed $GIT_SHA"
+          REMOTE
 
       - name: Restart PHP-FPM (if needed)
-        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.RESTART_PHP_FPM_DEV == 'true' }}
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ vars.SSH_HOST_DEV }}
-          username: ${{ vars.SSH_USERNAME_DEV }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          password: ${{ secrets.SSH_PASSWORD_DEV }}
-          port: ${{ vars.SSH_PORT_DEV || 22 }}
-          script: |
-            sudo systemctl restart php8.2-fpm || sudo systemctl restart php-fpm || echo "PHP-FPM restart skipped"
+        if: ${{ vars.SSH_HOST_DEV && vars.SSH_USERNAME_DEV && vars.DEPLOY_PATH_DEV && vars.RESTART_PHP_FPM_DEV == 'true' }}
+        run: |
+          ssh deploy 'sudo systemctl restart php8.2-fpm || sudo systemctl restart php-fpm || echo "PHP-FPM restart skipped"'
