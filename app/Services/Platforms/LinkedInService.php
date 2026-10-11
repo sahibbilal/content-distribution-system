@@ -197,7 +197,9 @@ class LinkedInService implements PlatformServiceInterface
             ],
         ]);
 
-        $uploadUrl = $register->json('value.uploadMechanism.com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest.uploadUrl');
+        // The mechanism key itself contains dots, so it can't be reached with dot notation
+        $mechanism = $register->json('value.uploadMechanism') ?? [];
+        $uploadUrl = $mechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']['uploadUrl'] ?? null;
         $assetUrn = $register->json('value.asset');
 
         if (!$register->successful() || !$uploadUrl || !$assetUrn) {
