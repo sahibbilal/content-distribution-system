@@ -86,4 +86,5 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     
     Route::post('/media/upload', [MediaController::class, 'upload']);
+    Route::post('/media/check', [MediaController::class, 'check']);
 });

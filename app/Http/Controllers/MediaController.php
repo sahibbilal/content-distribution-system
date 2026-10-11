@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Media;
+use App\Support\PlatformMediaRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -26,6 +27,16 @@ class MediaController extends Controller
         'video/x-ms-wmv' => ['type' => 'video', 'ext' => 'wmv'],
         'video/x-flv' => ['type' => 'video', 'ext' => 'flv'],
         'video/x-matroska' => ['type' => 'video', 'ext' => 'mkv'],
+        'audio/mpeg' => ['type' => 'audio', 'ext' => 'mp3'],
+        'audio/wav' => ['type' => 'audio', 'ext' => 'wav'],
+        'audio/x-wav' => ['type' => 'audio', 'ext' => 'wav'],
+        'audio/ogg' => ['type' => 'audio', 'ext' => 'ogg'],
+        'audio/mp4' => ['type' => 'audio', 'ext' => 'm4a'],
+        'audio/x-m4a' => ['type' => 'audio', 'ext' => 'm4a'],
+        'audio/aac' => ['type' => 'audio', 'ext' => 'aac'],
+        'audio/flac' => ['type' => 'audio', 'ext' => 'flac'],
+        'audio/x-flac' => ['type' => 'audio', 'ext' => 'flac'],
+        'audio/webm' => ['type' => 'audio', 'ext' => 'weba'],
     ];
 
     private const MAX_IMAGE_PIXELS = 25_000_000; // guards against decompression bombs
@@ -48,7 +59,7 @@ class MediaController extends Controller
         $kind = self::ALLOWED[$mime] ?? null;
 
         if (!$kind) {
-            return $this->reject('This file is not a supported image or video. Its real content type is ' . ($mime ?: 'unknown') . ', whatever the file name says.');
+            return $this->reject('This file is not a supported image, video or audio file. Its real content type is ' . ($mime ?: 'unknown') . ', whatever the file name says.');
         }
 
         if ($kind['type'] === 'image') {
@@ -85,6 +96,24 @@ class MediaController extends Controller
             'url' => Storage::url($path),
             'type' => $media->type,
         ], 201);
+    }
+
+    /**
+     * Check the chosen platforms against the uploaded files, so the UI can show problems
+     * (e.g. an image on YouTube) before the user publishes.
+     */
+    public function check(Request $request)
+    {
+        $data = $request->validate([
+            'platforms' => 'present|array',
+            'platforms.*' => 'integer',
+            'media' => 'present|array',
+            'media.*' => 'integer',
+        ]);
+
+        return response()->json([
+            'issues' => (object) PlatformMediaRules::forPost($request->user()->id, $data['platforms'], $data['media']),
+        ]);
     }
 
     private function reject(string $message)
