@@ -202,6 +202,8 @@ jobs:
             cd "$DEPLOY_PATH" || exit 1
             echo "=== Clearing Laravel caches ==="
             # Clear view cache to ensure fresh Vite tags
+            # public/storage is gitignored (not rsynced), so uploaded media 404s without this link
+            [ -e public/storage ] || php artisan storage:link || echo "WARNING: storage:link failed"
             php artisan view:clear || echo "WARNING: view:clear failed"
             php artisan config:clear || echo "WARNING: config:clear failed"
             php artisan cache:clear || echo "WARNING: cache:clear failed"
