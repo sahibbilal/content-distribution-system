@@ -100,6 +100,9 @@ Route::get('/test-vite-output', function () {
 // OAuth callbacks (needs session middleware)
 Route::get('/api/platforms/linkedin/oauth/callback', [\App\Http\Controllers\LinkedInOAuthController::class, 'callback']);
 Route::get('/api/platforms/tiktok/oauth/callback', [\App\Http\Controllers\TikTokOAuthController::class, 'callback']);
+Route::get('/api/platforms/twitter/oauth/callback', [\App\Http\Controllers\TwitterOAuthController::class, 'callback']);
+Route::get('/api/platforms/youtube/oauth/callback', [\App\Http\Controllers\YouTubeOAuthController::class, 'callback']);
+Route::get('/api/platforms/instagram/oauth/callback', [\App\Http\Controllers\InstagramOAuthController::class, 'callback']);
 Route::get('/api/platforms/facebook/oauth/callback', [\App\Http\Controllers\FacebookOAuthController::class, 'callback']);
 
 // Email verification link (signed URL sent by Laravel's verification notification)

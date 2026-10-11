@@ -75,6 +75,16 @@ export default {
                 name: 'TikTok',
                 description: 'Short-form video content platform',
             },
+            {
+                type: 'twitter',
+                name: 'X (Twitter)',
+                description: 'Short text posts (tweets)',
+            },
+            {
+                type: 'instagram',
+                name: 'Instagram',
+                description: 'Photos and Reels for Business and Creator accounts',
+            },
         ];
 
         const loadPlatforms = async () => {

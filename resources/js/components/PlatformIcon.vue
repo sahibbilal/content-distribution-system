@@ -36,6 +36,16 @@ const ICONS = {
         "h": 180,
         "body": "<path fill=\"red\" d=\"M250.346 28.075A32.18 32.18 0 0 0 227.69 5.418C207.824 0 127.87 0 127.87 0S47.912.164 28.046 5.582A32.18 32.18 0 0 0 5.39 28.24c-6.009 35.298-8.34 89.084.165 122.97a32.18 32.18 0 0 0 22.656 22.657c19.866 5.418 99.822 5.418 99.822 5.418s79.955 0 99.82-5.418a32.18 32.18 0 0 0 22.657-22.657c6.338-35.348 8.291-89.1-.164-123.134\"/><path fill=\"#fff\" d=\"m102.421 128.06l66.328-38.418l-66.328-38.418z\"/>"
     },
+    "twitter": {
+        "w": 24,
+        "h": 24,
+        "body": "<path fill=\"#000\" d=\"M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z\"/>"
+    },
+    "instagram": {
+        "w": 24,
+        "h": 24,
+        "body": "<defs><linearGradient id=\"ig-g\" x1=\"0\" y1=\"1\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#feda75\"/><stop offset=\".35\" stop-color=\"#fa7e1e\"/><stop offset=\".6\" stop-color=\"#d62976\"/><stop offset=\"1\" stop-color=\"#4f5bd5\"/></linearGradient></defs><rect width=\"24\" height=\"24\" rx=\"6\" fill=\"url(#ig-g)\"/><rect x=\"5\" y=\"5\" width=\"14\" height=\"14\" rx=\"4\" fill=\"none\" stroke=\"#fff\" stroke-width=\"1.8\"/><circle cx=\"12\" cy=\"12\" r=\"3.3\" fill=\"none\" stroke=\"#fff\" stroke-width=\"1.8\"/><circle cx=\"16.5\" cy=\"7.5\" r=\"1\" fill=\"#fff\"/>"
+    },
     "tiktok": {
         "w": 256,
         "h": 290,

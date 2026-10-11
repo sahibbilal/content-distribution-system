@@ -122,23 +122,16 @@
             </section>
 
             <!-- YouTube -->
-            <section v-else-if="platformType === 'youtube'" class="card p-5">
-                <h2 class="card-title">Connect YouTube</h2>
-                <form @submit.prevent="handleConnect" class="mt-5 space-y-5">
-                    <div>
-                        <label class="label">Credentials JSON</label>
-                        <textarea v-model="credentials.credentials" rows="8" class="input font-mono text-xs" required placeholder="Paste your Google OAuth credentials JSON"></textarea>
-                        <p class="hint">Your Google OAuth 2.0 credentials JSON.</p>
-                    </div>
-                    <div class="flex flex-wrap gap-3">
-                        <button type="button" @click="testConnection" class="btn btn-secondary" :disabled="testingConnection || !hasCredentials">
-                            {{ testingConnection ? 'Testing...' : 'Test connection' }}
-                        </button>
-                        <button type="submit" class="btn btn-primary" :disabled="!hasCredentials || connecting">
-                            {{ connecting ? 'Connecting...' : 'Connect' }}
-                        </button>
-                    </div>
-                </form>
+            <section v-else-if="platformType === 'youtube'" class="card space-y-5 p-5">
+                <div>
+                    <h2 class="card-title">Connect with YouTube</h2>
+                    <p class="mt-1 text-sm text-slate-500">Sign in with Google to upload videos to your channel. A video is required for every YouTube post; the first line of your text becomes the title.</p>
+                </div>
+                <button @click="loginWithYouTube" class="btn w-full bg-slate-900 text-white hover:bg-black" :disabled="linkingYouTube">
+                    <PlatformIcon type="youtube" :size="18" />
+                    <span v-if="!linkingYouTube">Sign in with Google</span>
+                    <span v-else>Connecting...</span>
+                </button>
             </section>
 
             <!-- TikTok -->
@@ -177,6 +170,32 @@
                         </button>
                     </div>
                 </form>
+            </section>
+
+            <!-- X (Twitter) -->
+            <section v-else-if="platformType === 'twitter'" class="card space-y-5 p-5">
+                <div>
+                    <h2 class="card-title">Connect with X</h2>
+                    <p class="mt-1 text-sm text-slate-500">Authorize your X account to publish tweets (up to 280 characters, with up to 4 images).</p>
+                </div>
+                <button @click="loginWithTwitter" class="btn w-full bg-slate-900 text-white hover:bg-black" :disabled="linkingTwitter">
+                    <PlatformIcon type="twitter" :size="18" class="rounded-sm bg-white p-px" />
+                    <span v-if="!linkingTwitter">Log in with X</span>
+                    <span v-else>Connecting...</span>
+                </button>
+            </section>
+
+            <!-- Instagram -->
+            <section v-else-if="platformType === 'instagram'" class="card space-y-5 p-5">
+                <div>
+                    <h2 class="card-title">Connect with Instagram</h2>
+                    <p class="mt-1 text-sm text-slate-500">Authorize a Business or Creator account to publish photos and Reels. An image or video is required for every post.</p>
+                </div>
+                <button @click="loginWithInstagram" class="btn w-full bg-slate-900 text-white hover:bg-black" :disabled="linkingInstagram">
+                    <PlatformIcon type="instagram" :size="18" />
+                    <span v-if="!linkingInstagram">Log in with Instagram</span>
+                    <span v-else>Connecting...</span>
+                </button>
             </section>
 
             <!-- Test result -->
@@ -227,6 +246,9 @@ export default {
         const testingConnection = ref(false);
         const linkingLinkedIn = ref(false);
         const linkingTikTok = ref(false);
+        const linkingTwitter = ref(false);
+        const linkingInstagram = ref(false);
+        const linkingYouTube = ref(false);
         const linkingFacebook = ref(false);
         const error = ref('');
         const success = ref('');
@@ -243,6 +265,8 @@ export default {
                 facebook: { name: 'Facebook', description: 'Social media platform' },
                 youtube: { name: 'YouTube', description: 'Video sharing platform' },
                 tiktok: { name: 'TikTok', description: 'Short-form video platform' },
+                twitter: { name: 'X (Twitter)', description: 'Short text posts (tweets)' },
+                instagram: { name: 'Instagram', description: 'Photos and Reels' },
             };
             return platforms[platformType] || { name: platformType, description: '' };
         });
@@ -256,8 +280,6 @@ export default {
                     return !!(creds.access_token && (creds.page_id || creds.instagram_account_id));
                 case 'linkedin':
                     return !!creds.access_token;
-                case 'youtube':
-                    return !!creds.credentials;
                 case 'tiktok':
                     return !!(creds.access_token && creds.open_id);
                 default:
@@ -319,6 +341,69 @@ export default {
             } catch (err) {
                 error.value = err.response?.data?.message || 'Failed to initiate TikTok login';
                 linkingTikTok.value = false;
+            }
+        };
+
+        const loginWithTwitter = async () => {
+            if (platformType !== 'twitter') return;
+
+            linkingTwitter.value = true;
+            error.value = '';
+            success.value = '';
+
+            try {
+                const response = await axios.get('/platforms/twitter/oauth/initiate');
+                if (response.data.auth_url) {
+                    window.location.href = response.data.auth_url;
+                } else {
+                    error.value = 'Failed to initiate X OAuth';
+                    linkingTwitter.value = false;
+                }
+            } catch (err) {
+                error.value = err.response?.data?.message || 'Failed to initiate X login';
+                linkingTwitter.value = false;
+            }
+        };
+
+        const loginWithInstagram = async () => {
+            if (platformType !== 'instagram') return;
+
+            linkingInstagram.value = true;
+            error.value = '';
+            success.value = '';
+
+            try {
+                const response = await axios.get('/platforms/instagram/oauth/initiate');
+                if (response.data.auth_url) {
+                    window.location.href = response.data.auth_url;
+                } else {
+                    error.value = 'Failed to initiate Instagram OAuth';
+                    linkingInstagram.value = false;
+                }
+            } catch (err) {
+                error.value = err.response?.data?.message || 'Failed to initiate Instagram login';
+                linkingInstagram.value = false;
+            }
+        };
+
+        const loginWithYouTube = async () => {
+            if (platformType !== 'youtube') return;
+
+            linkingYouTube.value = true;
+            error.value = '';
+            success.value = '';
+
+            try {
+                const response = await axios.get('/platforms/youtube/oauth/initiate');
+                if (response.data.auth_url) {
+                    window.location.href = response.data.auth_url;
+                } else {
+                    error.value = 'Failed to initiate YouTube OAuth';
+                    linkingYouTube.value = false;
+                }
+            } catch (err) {
+                error.value = err.response?.data?.message || 'Failed to initiate YouTube login';
+                linkingYouTube.value = false;
             }
         };
 
@@ -488,6 +573,12 @@ export default {
             const linkedinError = urlParams.get('linkedin_error');
             const tiktokSuccess = urlParams.get('tiktok_success');
             const tiktokError = urlParams.get('tiktok_error');
+            const twitterSuccess = urlParams.get('twitter_success');
+            const twitterError = urlParams.get('twitter_error');
+            const instagramSuccess = urlParams.get('instagram_success');
+            const instagramError = urlParams.get('instagram_error');
+            const youtubeSuccess = urlParams.get('youtube_success');
+            const youtubeError = urlParams.get('youtube_error');
             const facebookSuccess = urlParams.get('facebook_success');
             const facebookError = urlParams.get('facebook_error');
             const facebookMessage = urlParams.get('message');
@@ -514,6 +605,39 @@ export default {
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
             
+            if (twitterSuccess) {
+                success.value = 'X connected successfully!';
+                loadPlatform();
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            if (twitterError) {
+                error.value = decodeURIComponent(twitterError);
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            if (instagramSuccess) {
+                success.value = 'Instagram connected successfully!';
+                loadPlatform();
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            if (instagramError) {
+                error.value = decodeURIComponent(instagramError);
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            if (youtubeSuccess) {
+                success.value = 'YouTube connected successfully!';
+                loadPlatform();
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            if (youtubeError) {
+                error.value = decodeURIComponent(youtubeError);
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
             // Handle Facebook OAuth callback (fallback for server-side OAuth)
             if (facebookSuccess) {
                 success.value = facebookMessage ? decodeURIComponent(facebookMessage) : 'Facebook connected successfully!';
@@ -635,6 +759,9 @@ export default {
             testingConnection,
             linkingLinkedIn,
             linkingTikTok,
+            linkingTwitter,
+            linkingInstagram,
+            linkingYouTube,
             error,
             success,
             testResult,
@@ -645,6 +772,9 @@ export default {
             fbSDKReady,
             loginWithLinkedIn,
             loginWithTikTok,
+            loginWithTwitter,
+            loginWithInstagram,
+            loginWithYouTube,
             testConnection,
             testSavedConnection,
             handleConnect,

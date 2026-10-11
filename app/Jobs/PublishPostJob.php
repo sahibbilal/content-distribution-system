@@ -69,6 +69,7 @@ class PublishPostJob implements ShouldQueue
                 ]);
                 $platformStatuses[$platformId] = [
                     'status' => 'failed',
+                    'platform' => $platform->platform_type,
                     'error' => $e->getMessage(),
                     'message' => $e->getMessage(), // Also store in message for display
                 ];

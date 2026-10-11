@@ -62,6 +62,21 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/initiate', [\App\Http\Controllers\TikTokOAuthController::class, 'initiate']);
         });
         
+        // X (Twitter) OAuth routes
+        Route::prefix('twitter/oauth')->group(function () {
+            Route::get('/initiate', [\App\Http\Controllers\TwitterOAuthController::class, 'initiate']);
+        });
+
+        // YouTube OAuth routes
+        Route::prefix('youtube/oauth')->group(function () {
+            Route::get('/initiate', [\App\Http\Controllers\YouTubeOAuthController::class, 'initiate']);
+        });
+
+        // Instagram OAuth routes
+        Route::prefix('instagram/oauth')->group(function () {
+            Route::get('/initiate', [\App\Http\Controllers\InstagramOAuthController::class, 'initiate']);
+        });
+
         // Facebook OAuth routes
         Route::prefix('facebook/oauth')->group(function () {
             Route::get('/initiate', [\App\Http\Controllers\FacebookOAuthController::class, 'initiate']);

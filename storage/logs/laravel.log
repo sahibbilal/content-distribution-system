@@ -2219,3 +2219,9 @@
 [2026-10-11 14:14:34] local.ERROR: LinkedIn registerUpload failed {"status":401,"body":"{\"message\":\"Invalid access token\"}"} 
 [2026-10-11 14:14:34] local.ERROR: LinkedIn image upload failed {"status":500,"body":"boom"} 
 [2026-10-11 14:14:34] local.ERROR: LinkedIn registerUpload failed {"status":200,"body":"{\"value\":{\"asset\":\"urn:x\"}}"} 
+[2026-10-11 17:02:53] local.INFO: Twitter OAuth connection successful {"user_id":3,"platform_id":6} 
+[2026-10-11 17:03:35] local.ERROR: Twitter publish failed: X API error (402): credits depleted {"platform_type":"twitter","exception":"Exception"} 
+[2026-10-11 17:03:35] local.ERROR: Failed to publish to twitter: X API error (402): credits depleted {"platform_id":6,"platform_type":"twitter","exception":"Exception"} 
+[2026-10-11 17:12:41] local.ERROR: Twitter publish failed: X media upload failed (403): Forbidden (reconnect X so the media.write permission is granted) {"platform_type":"twitter","exception":"Exception"} 
+[2026-10-11 17:12:41] local.ERROR: Failed to publish to twitter: X media upload failed (403): Forbidden (reconnect X so the media.write permission is granted) {"platform_id":6,"platform_type":"twitter","exception":"Exception"} 
+[2026-10-11 17:14:04] local.INFO: Twitter OAuth connection successful {"user_id":3,"platform_id":7} 

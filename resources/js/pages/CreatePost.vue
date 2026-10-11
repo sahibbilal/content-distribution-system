@@ -86,6 +86,18 @@
                 <p v-if="form.platforms.length === 0 && !loadingPlatforms && platforms.length" class="-mt-3 text-center text-xs text-slate-500">Select at least one platform.</p>
 
                 <div v-if="error" class="alert alert-error">{{ error }}</div>
+                <ul v-if="failures.length" class="space-y-2">
+                    <li v-for="f in failures" :key="f.id" class="flex items-start gap-3 rounded-lg bg-red-50 p-3 ring-1 ring-inset ring-red-200">
+                        <PlatformIcon v-if="f.type" :type="f.type" :size="20" class="mt-0.5 shrink-0" />
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-semibold text-red-900">{{ f.type ? platformLabel(f.type) : 'Platform' }}</p>
+                            <p class="mt-0.5 break-words text-sm text-red-800">{{ f.message }}</p>
+                            <router-link v-if="f.type" :to="`/platforms/${f.type}`" class="mt-1.5 inline-block text-sm font-semibold text-red-900 underline">
+                                Check {{ platformLabel(f.type) }} connection
+                            </router-link>
+                        </div>
+                    </li>
+                </ul>
                 <div v-if="success" class="alert alert-success">{{ success }}</div>
             </div>
         </form>
@@ -118,7 +130,13 @@ export default {
         const loading = ref(false);
         const loadingPlatforms = ref(true);
         const error = ref('');
+        const failures = ref([]);
         const success = ref('');
+
+        // One entry per platform that failed, so each error is shown once and labelled
+        const collectFailures = (statuses) => Object.entries(statuses || {})
+            .filter(([, s]) => s.status === 'failed')
+            .map(([id, s]) => ({ id, type: s.platform || null, message: s.error || s.message || 'Failed' }));
 
         const loadPlatforms = async () => {
             try {
@@ -191,6 +209,7 @@ export default {
 
             loading.value = true;
             error.value = '';
+            failures.value = [];
             success.value = '';
 
             try {
@@ -210,6 +229,7 @@ export default {
                 if (response.data.warning) {
                     // Some platforms failed but post was saved
                     error.value = response.data.warning + '. Check platform statuses in Dashboard.';
+                    failures.value = collectFailures(response.data.platform_statuses);
                     // Don't redirect - let user see the error
                     return;
                 }
@@ -217,21 +237,11 @@ export default {
                 // Check if response indicates failure (status 422 or error field)
                 if (response.status === 422 || response.data.error) {
                     // All platforms failed - post was not saved
-                    const errorMsg = response.data.message || response.data.error || 'Failed to publish post to all platforms';
-                    error.value = errorMsg;
-                    
-                    // Show detailed platform errors if available
-                    if (response.data.platform_statuses) {
-                        const platformErrors = Object.entries(response.data.platform_statuses)
-                            .map(([platformId, status]) => {
-                                const platformType = status.platform || 'Unknown';
-                                const error = status.error || status.message || 'Failed';
-                                return `${platformType}: ${error}`;
-                            })
-                            .join('\n');
-                        error.value += '\n\n' + platformErrors;
-                    }
-                    
+                    failures.value = collectFailures(response.data.platform_statuses);
+                    error.value = failures.value.length
+                        ? (response.data.error || 'Failed to publish post')
+                        : (response.data.message || response.data.error || 'Failed to publish post to all platforms');
+
                     // Don't redirect - stay on page so user can fix and retry
                     return;
                 }
@@ -246,21 +256,11 @@ export default {
             } catch (err) {
                 // Handle HTTP errors (422, 500, etc.)
                 const errorData = err.response?.data || {};
-                let errorMsg = errorData.message || errorData.error || 'Failed to create post';
-                
-                // Add detailed platform errors if available
-                if (errorData.platform_statuses) {
-                    const platformErrors = Object.entries(errorData.platform_statuses)
-                        .map(([platformId, status]) => {
-                            const platformType = status.platform || 'Unknown';
-                            const error = status.error || status.message || 'Failed';
-                            return `${platformType}: ${error}`;
-                        })
-                        .join('\n');
-                    errorMsg += '\n\nPlatform Errors:\n' + platformErrors;
-                }
-                
-                error.value = errorMsg;
+                failures.value = collectFailures(errorData.platform_statuses);
+                // With per-platform failures listed below, the headline stays generic (no duplicate message)
+                error.value = failures.value.length
+                    ? (errorData.error || 'Failed to publish post')
+                    : (errorData.message || errorData.error || 'Failed to create post');
                 // Don't redirect on error - stay on page
             } finally {
                 loading.value = false;
@@ -277,6 +277,7 @@ export default {
             loading,
             loadingPlatforms,
             error,
+            failures,
             success,
             getFileAcceptTypes,
             handleFileUpload,
