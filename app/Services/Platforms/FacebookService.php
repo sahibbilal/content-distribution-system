@@ -49,30 +49,16 @@ class FacebookService implements PlatformServiceInterface
             return $this->publishVideoToFacebook($content, $pageId, $accessToken, $video);
         }
 
+        if (!empty($media[0])) {
+            return $this->publishPhotoToFacebook($content, $pageId, $accessToken, $media[0]);
+        }
+
         $url = "https://graph.facebook.com/v18.0/{$pageId}/feed";
 
         $data = [
             'message' => $content,
             'access_token' => $accessToken,
         ];
-
-        // Handle media upload if provided
-        if (!empty($media) && isset($media[0])) {
-            $mediaFile = $media[0];
-            $mediaUrl = $mediaFile['url'] ?? null;
-            $mediaPath = $mediaFile['path'] ?? null;
-
-            // If it's an image/video file, upload it first
-            if ($mediaPath && file_exists(storage_path('app/' . $mediaPath))) {
-                $mediaId = $this->uploadMedia($pageId, $accessToken, storage_path('app/' . $mediaPath));
-                if ($mediaId) {
-                    $data['attached_media'] = json_encode([['media_fbid' => $mediaId]]);
-                }
-            } elseif ($mediaUrl) {
-                // Use URL directly
-                $data['link'] = $mediaUrl;
-            }
-        }
 
         $response = Http::post($url, $data);
 
@@ -100,6 +86,38 @@ class FacebookService implements PlatformServiceInterface
         $errorMessage = $errorData['error']['message'] ?? $errorBody;
         
         throw new \Exception('Facebook API error: ' . $errorMessage);
+    }
+
+    /**
+     * Publish an image to the Page's /photos edge with the post text as its caption.
+     */
+    private function publishPhotoToFacebook(string $content, string $pageId, string $accessToken, array $image): array
+    {
+        $disk = Storage::disk('public');
+        if (empty($image['path']) || !$disk->exists($image['path'])) {
+            throw new \Exception('The image file could not be found on the server.');
+        }
+
+        $response = Http::timeout(120)
+            ->attach('source', $disk->get($image['path']), basename($image['path']))
+            ->post("https://graph.facebook.com/v18.0/{$pageId}/photos", [
+                'caption' => $content,
+                'access_token' => $accessToken,
+            ]);
+
+        $postId = $response->json('post_id') ?? $response->json('id');
+        if (!$response->successful() || !$postId) {
+            throw new \Exception('Facebook photo upload failed: ' . ($response->json('error.message') ?? $response->body()));
+        }
+
+        return [
+            'success' => true,
+            'post_id' => $postId,
+            'post_url' => "https://www.facebook.com/{$postId}",
+            'url' => "https://www.facebook.com/{$postId}",
+            'platform' => 'facebook',
+            'message' => 'Post published successfully on Facebook',
+        ];
     }
 
     /**
@@ -231,28 +249,6 @@ class FacebookService implements PlatformServiceInterface
             'platform' => 'instagram',
             'message' => 'Post published successfully on Instagram',
         ];
-    }
-
-    /**
-     * Upload media file to Facebook
-     */
-    private function uploadMedia(string $pageId, string $accessToken, string $filePath): ?string
-    {
-        try {
-            $response = Http::attach('source', file_get_contents($filePath), basename($filePath))
-                ->post("https://graph.facebook.com/v18.0/{$pageId}/photos", [
-                    'published' => false,
-                    'access_token' => $accessToken,
-                ]);
-
-            if ($response->successful()) {
-                return $response->json('id');
-            }
-        } catch (\Exception $e) {
-            Log::error('Facebook media upload failed: ' . $e->getMessage());
-        }
-
-        return null;
     }
 
     /**
