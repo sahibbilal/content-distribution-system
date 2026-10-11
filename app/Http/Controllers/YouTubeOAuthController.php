@@ -89,6 +89,11 @@ class YouTubeOAuthController extends Controller
 
             $channelResponse = Http::withToken($token['access_token'])->timeout(15)
                 ->get('https://www.googleapis.com/youtube/v3/channels', ['part' => 'snippet', 'mine' => 'true']);
+            if (!$channelResponse->successful()) {
+                Log::error('YouTube channel lookup failed', ['status' => $channelResponse->status(), 'body' => $channelResponse->body()]);
+                return $fail('YouTube channel lookup failed: ' . ($channelResponse->json('error.message') ?? $channelResponse->body()));
+            }
+
             $channel = $channelResponse->json('items.0');
 
             if (!$channel) {
