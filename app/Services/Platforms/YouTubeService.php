@@ -79,12 +79,18 @@ class YouTubeService implements PlatformServiceInterface
                 throw new \Exception('YouTube upload failed: ' . ($upload->json('error.message') ?? $upload->body()));
             }
 
+            $message = 'Video uploaded to YouTube';
+            if (!empty($video['thumbnail']['path'])) {
+                $thumbError = $this->setThumbnail($accessToken, $videoId, $video['thumbnail']['path']);
+                $message .= $thumbError ? " (thumbnail not set: {$thumbError})" : ' with custom thumbnail';
+            }
+
             return [
                 'success' => true,
                 'post_id' => $videoId,
                 'url' => 'https://www.youtube.com/watch?v=' . $videoId,
                 'platform' => 'youtube',
-                'message' => 'Video uploaded to YouTube',
+                'message' => $message,
             ];
         } catch (\Exception $e) {
             Log::error('YouTube publish failed: ' . $e->getMessage(), [
@@ -92,6 +98,39 @@ class YouTubeService implements PlatformServiceInterface
                 'exception' => get_class($e),
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * Set the custom thumbnail. The video is already live by now, so a failure here (e.g. the
+     * channel isn't verified for custom thumbnails) is reported but doesn't fail the publish.
+     * Returns an error message, or null on success.
+     */
+    private function setThumbnail(string $accessToken, string $videoId, string $path): ?string
+    {
+        $disk = Storage::disk('public');
+        if (!$disk->exists($path)) {
+            return 'the thumbnail file could not be found';
+        }
+
+        try {
+            $response = Http::withToken($accessToken)
+                ->withBody($disk->get($path), $disk->mimeType($path) ?: 'image/jpeg')
+                ->timeout(60)
+                ->post('https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=' . urlencode($videoId));
+
+            if ($response->successful()) {
+                return null;
+            }
+
+            $error = $response->json('error.message') ?? $response->body();
+            Log::warning('YouTube thumbnail failed: ' . $error, ['platform_type' => 'youtube']);
+
+            return $error;
+        } catch (\Exception $e) {
+            Log::warning('YouTube thumbnail failed: ' . $e->getMessage(), ['platform_type' => 'youtube']);
+
+            return $e->getMessage();
         }
     }
 

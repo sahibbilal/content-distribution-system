@@ -2,22 +2,46 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Platform;
 use App\Models\Post;
 use App\Models\SiteContent;
 use App\Jobs\PublishPostJob;
 use App\Support\PlatformMediaRules;
+use App\Support\RichText;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class PostController extends Controller
 {
     public function index(Request $request)
     {
-        $request->validate(['status' => 'nullable|in:published,scheduled,failed,draft']);
+        $request->validate([
+            'status' => 'nullable|in:published,scheduled,failed,draft',
+            'platform' => 'nullable|string|max:50', // platform type, e.g. facebook
+            'search' => 'nullable|string|max:200',
+        ]);
 
-        $posts = Post::where('user_id', $request->user()->id)
+        $userId = $request->user()->id;
+
+        $posts = Post::where('user_id', $userId)
             ->when($request->status, fn ($query, $status) => $query->where('status', $status))
+            ->when($request->platform, function ($query, $type) use ($userId) {
+                // posts store platform ids; match every one of the user's platforms of this type
+                $ids = Platform::where('user_id', $userId)->where('platform_type', $type)->pluck('id');
+                $query->where(function ($q) use ($ids) {
+                    foreach ($ids as $id) {
+                        $q->orWhereJsonContains('platforms', $id);
+                    }
+                    $q->orWhereRaw('1 = 0'); // no platform of this type: match nothing
+                });
+            })
+            ->when($request->search, function ($query, $term) {
+                // escape LIKE wildcards so "100%" searches for the literal text
+                $like = '%' . addcslashes($term, '\\%_') . '%';
+                $query->where('content', 'like', $like);
+            })
             ->with('media')
             ->orderBy('created_at', 'desc')
             ->paginate(15);
@@ -28,13 +52,24 @@ class PostController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'content' => 'required|string',
+            'content' => 'required_without:content_html|nullable|string',
+            'content_html' => 'nullable|string|max:100000',
             'platforms' => 'required|array|min:1',
             'platforms.*' => 'exists:platforms,id',
             'scheduled_at' => 'nullable|date|after:now',
             'media' => 'nullable|array',
             'media.*' => 'exists:media,id',
+            'thumbnail_media_id' => 'nullable|exists:media,id',
         ]);
+
+        [$content, $contentHtml] = $this->postText($request);
+
+        if ($request->thumbnail_media_id) {
+            $thumbnailError = $this->thumbnailError($request->user()->id, $request->thumbnail_media_id, $request->media ?? []);
+            if ($thumbnailError) {
+                return response()->json(['message' => $thumbnailError, 'errors' => ['thumbnail_media_id' => [$thumbnailError]]], 422);
+            }
+        }
 
         // Refuse file/platform combinations that can't be published (e.g. an image on YouTube)
         $problems = PlatformMediaRules::forPost($request->user()->id, $request->platforms, $request->media ?? []);
@@ -49,10 +84,12 @@ class PostController extends Controller
 
         $post = Post::create([
             'user_id' => $request->user()->id,
-            'content' => $request->content,
+            'content' => $content,
+            'content_html' => $contentHtml,
             'platforms' => $request->platforms,
             'status' => $request->scheduled_at ? 'scheduled' : 'draft',
             'scheduled_at' => $request->scheduled_at,
+            'thumbnail_media_id' => $request->thumbnail_media_id,
         ]);
 
         if ($request->media && is_array($request->media)) {
@@ -129,6 +166,42 @@ class PostController extends Controller
         return response()->json($post, 201);
     }
 
+    /**
+     * [plain text, cleaned HTML|null] for a request. Rich-text posts send content_html; the plain text
+     * that platforms receive is always derived from it on the server, never trusted from the client.
+     */
+    private function postText(Request $request): array
+    {
+        if ($request->filled('content_html')) {
+            $html = RichText::sanitize($request->content_html);
+            $plain = RichText::toPlainText($html);
+            if ($plain === '') {
+                throw ValidationException::withMessages(['content' => ['The post content is empty.']]);
+            }
+
+            return [$plain, $html];
+        }
+
+        return [$request->content, null];
+    }
+
+    /** Why the chosen thumbnail can't be used (null when it's fine). Limits match the strictest platform (YouTube: 2MB). */
+    private function thumbnailError(int $userId, int $thumbnailId, array $mediaIds): ?string
+    {
+        $thumbnail = \App\Models\Media::where('user_id', $userId)->find($thumbnailId);
+        if (!$thumbnail || $thumbnail->type !== 'image' || !in_array($thumbnail->mime_type, ['image/jpeg', 'image/png'], true)) {
+            return 'The thumbnail must be a JPG or PNG image.';
+        }
+        if ($thumbnail->size > 2 * 1024 * 1024) {
+            return 'The thumbnail must be 2MB or smaller (yours is ' . round($thumbnail->size / 1048576, 1) . 'MB).';
+        }
+        if (!\App\Models\Media::where('user_id', $userId)->whereIn('id', $mediaIds)->where('type', 'video')->exists()) {
+            return 'A thumbnail can only be added to a post with a video.';
+        }
+
+        return null;
+    }
+
     public function show(Request $request, $id)
     {
         $post = Post::where('user_id', $request->user()->id)
@@ -151,11 +224,14 @@ class PostController extends Controller
         }
 
         $data = $request->validate([
-            'content' => 'required|string',
+            'content' => 'required_without:content_html|nullable|string',
+            'content_html' => 'nullable|string|max:100000',
             'platforms' => 'required|array|min:1',
             'platforms.*' => 'exists:platforms,id',
             'scheduled_at' => 'required|date|after:now',
         ]);
+
+        [$data['content'], $data['content_html']] = $this->postText($request);
 
         $problems = PlatformMediaRules::forPost($request->user()->id, $data['platforms'], $post->media->pluck('id')->all());
         if ($problems) {
@@ -180,17 +256,24 @@ class PostController extends Controller
 
     public function destroy(Request $request, $id)
     {
-        $post = Post::where('user_id', $request->user()->id)->with('media')->findOrFail($id);
+        $post = Post::where('user_id', $request->user()->id)->with(['media', 'thumbnail'])->findOrFail($id);
 
         // Deleting a post would cascade to its media rows and leave the files behind,
         // so either remove the files or release them back to the user's library
+        $deleteFiles = SiteContent::setting('delete_media_after_publish');
         foreach ($post->media as $media) {
-            if (SiteContent::setting('delete_media_after_publish')) {
+            if ($deleteFiles) {
                 Storage::disk('public')->delete($media->path);
                 $media->delete();
             } else {
                 $media->update(['post_id' => null]);
             }
+        }
+
+        // the video's custom cover is a library file that is not attached through post_id
+        if ($post->thumbnail && $deleteFiles) {
+            Storage::disk('public')->delete($post->thumbnail->path);
+            $post->thumbnail->delete();
         }
 
         $post->delete();

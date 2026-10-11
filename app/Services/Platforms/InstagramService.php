@@ -48,6 +48,8 @@ class InstagramService implements PlatformServiceInterface
                 'image_url' => $isVideo ? null : $mediaUrl,
                 'video_url' => $isVideo ? $mediaUrl : null,
                 'media_type' => $isVideo ? 'REELS' : null,
+                // custom cover for a Reel (Instagram downloads it, so it must be a public URL too)
+                'cover_url' => $isVideo && !empty($media[0]['thumbnail']['url']) ? url($media[0]['thumbnail']['url']) : null,
             ]));
             $containerId = $container->json('id');
             if (!$container->successful() || !$containerId) {

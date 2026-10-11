@@ -7,10 +7,11 @@
             <div class="space-y-6 lg:col-span-2">
                 <section class="card p-5">
                     <div class="mb-1.5 flex items-center justify-between">
-                        <label class="label mb-0" for="post-content">Content</label>
+                        <span class="label mb-0">Content</span>
                         <span class="text-xs text-slate-400">{{ form.content.length }} characters</span>
                     </div>
-                    <textarea id="post-content" v-model="form.content" rows="9" class="input resize-y" required placeholder="What would you like to post?"></textarea>
+                    <RichTextEditor v-model="form.content_html" v-model:text="form.content" placeholder="What would you like to post?" />
+                    <p class="hint">Platforms publish plain text: bold and italic are kept in your draft, but lists become bullets and links show their address.</p>
                 </section>
 
                 <section class="card p-5">
@@ -27,6 +28,32 @@
                         <span class="mt-1 text-xs text-slate-500">Images, videos and audio</span>
                         <input type="file" class="sr-only" multiple :accept="getFileAcceptTypes()" @change="handleFileUpload" />
                     </label>
+
+                    <button type="button" class="btn btn-secondary btn-sm mt-3" data-library-toggle @click="toggleLibrary">
+                        <Images class="h-4 w-4" /> {{ libraryOpen ? 'Hide your library' : 'Choose from your library' }}
+                    </button>
+                    <div v-if="libraryOpen" class="mt-3 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-900/5" data-library>
+                        <p v-if="libraryLoading" class="text-sm text-slate-500">Loading your files...</p>
+                        <p v-else-if="libraryChoices.length === 0" class="text-sm text-slate-500">No saved files to add yet.</p>
+                        <template v-else>
+                            <ul class="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                                <li v-for="file in libraryChoices" :key="file.id">
+                                    <label class="block" :class="file.in_use ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'" :title="file.in_use ? 'On a scheduled post' : file.filename">
+                                        <input v-model="librarySelected" type="checkbox" :value="file.id" :disabled="file.in_use" class="peer sr-only" />
+                                        <span class="flex aspect-square items-center justify-center overflow-hidden rounded-md bg-slate-200 text-slate-500 ring-2 ring-transparent transition peer-checked:ring-brand-600 peer-focus-visible:ring-brand-400">
+                                            <img v-if="file.type === 'image'" :src="file.url" :alt="file.filename" class="h-full w-full object-cover" loading="lazy" />
+                                            <Film v-else-if="file.type === 'video'" class="h-6 w-6" />
+                                            <Music v-else class="h-6 w-6" />
+                                        </span>
+                                        <span class="mt-1 block truncate text-[11px] text-slate-600">{{ file.filename }}</span>
+                                    </label>
+                                </li>
+                            </ul>
+                            <button type="button" class="btn btn-primary btn-sm mt-3" :disabled="librarySelected.length === 0" @click="addFromLibrary">
+                                Add {{ librarySelected.length || '' }} selected
+                            </button>
+                        </template>
+                    </div>
 
                     <p v-if="uploading" class="mt-4 text-xs font-medium text-slate-500">
                         Uploading file {{ uploadPosition }} of {{ uploads.length }}. Files upload one at a time.
@@ -61,6 +88,48 @@
                             <p v-else class="mt-2 whitespace-pre-line text-xs text-red-800">{{ item.error }}</p>
                         </li>
                     </ul>
+
+                    <!-- Asked once a video has finished uploading -->
+                    <div v-if="hasVideo" class="mt-5 rounded-lg bg-slate-50 p-4 ring-1 ring-slate-900/5" data-thumbnail>
+                        <p class="text-sm font-medium text-slate-800">Do you want to upload a thumbnail for this video?</p>
+                        <div class="mt-3 flex gap-2">
+                            <button type="button" class="btn" :class="thumbChoice === 'yes' ? 'btn-primary' : 'btn-secondary'" @click="thumbChoice = 'yes'">Yes, upload one</button>
+                            <button type="button" class="btn" :class="thumbChoice === 'no' ? 'btn-primary' : 'btn-secondary'" @click="chooseNoThumbnail">No thanks</button>
+                        </div>
+
+                        <template v-if="thumbChoice === 'yes'">
+                            <label v-if="!thumb" class="mt-3 flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white px-4 py-4 text-sm text-slate-600 hover:border-brand-400">
+                                <ImageIcon class="h-5 w-5 text-slate-400" />
+                                <span><span class="font-medium text-brand-700">Choose a thumbnail</span> (JPG or PNG, up to 2MB)</span>
+                                <input type="file" class="sr-only" accept="image/jpeg,image/png" @change="handleThumbnail" />
+                            </label>
+                            <div v-else class="mt-3 rounded-lg bg-white p-3 ring-1 ring-slate-900/5" :class="{ 'bg-red-50! ring-red-200!': thumb.status === 'error' }" :data-status="thumb.status">
+                                <div class="flex items-center gap-3">
+                                    <img :src="thumb.preview" :alt="thumb.name" class="h-12 w-20 shrink-0 rounded-md object-cover" />
+                                    <div class="min-w-0 flex-1">
+                                        <p class="truncate text-sm font-medium text-slate-800">{{ thumb.name }}</p>
+                                        <p class="text-xs" :class="thumb.status === 'error' ? 'text-red-700' : thumb.status === 'done' ? 'text-emerald-700' : 'text-slate-500'">
+                                            {{ formatSize(thumb.size) }} &middot; {{ statusText(thumb) }}
+                                        </p>
+                                    </div>
+                                    <button type="button" @click="removeThumbnail" class="btn btn-ghost p-2!" aria-label="Remove thumbnail"
+                                        :disabled="thumb.status === 'uploading' || thumb.status === 'verifying'">
+                                        <X class="h-4 w-4" />
+                                    </button>
+                                </div>
+                                <div v-if="thumb.status !== 'error'" class="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar"
+                                    :aria-valuenow="thumb.progress" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="h-full rounded-full transition-all duration-200"
+                                        :class="[thumb.status === 'done' ? 'bg-emerald-500' : 'bg-brand-600', thumb.status === 'verifying' ? 'animate-pulse' : '']"
+                                        :style="{ width: thumb.progress + '%' }"></div>
+                                </div>
+                                <p v-else class="mt-2 whitespace-pre-line text-xs text-red-800">{{ thumb.error }}</p>
+                            </div>
+                            <p v-if="tiktokSelected" class="mt-3 text-xs text-slate-500">
+                                TikTok doesn't allow a custom thumbnail through its API, so it will use a frame from the video instead.
+                            </p>
+                        </template>
+                    </div>
                 </section>
             </div>
 
@@ -108,7 +177,7 @@
                     <input v-if="form.schedule" v-model="form.scheduled_at" type="datetime-local" class="input mt-4" required />
                 </section>
 
-                <button type="submit" class="btn btn-primary w-full py-3" :disabled="loading || uploading || hasIssues || form.platforms.length === 0">
+                <button type="submit" class="btn btn-primary w-full py-3" :disabled="loading || uploading || hasIssues || form.platforms.length === 0 || !form.content.trim()">
                     <Send class="h-4 w-4" />
                     {{ loading ? 'Publishing...' : (form.schedule ? 'Schedule post' : 'Publish now') }}
                 </button>
@@ -137,22 +206,26 @@
 
 <script>
 import { ref, reactive, markRaw, computed, watch, onMounted, onBeforeUnmount } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
-import { CalendarClock, Check, CircleAlert, File as FileIcon, Film, Music, Send, UploadCloud, X } from 'lucide-vue-next';
+import { CalendarClock, Check, CircleAlert, File as FileIcon, Film, Image as ImageIcon, Images, Music, Send, UploadCloud, X } from 'lucide-vue-next';
 import PageHeader from '../components/PageHeader.vue';
 import PlatformIcon from '../components/PlatformIcon.vue';
+import RichTextEditor from '../components/RichTextEditor.vue';
 import { platformLabel } from '../platforms.js';
 
 export default {
     name: 'CreatePost',
-    components: { CalendarClock, Check, CircleAlert, FileIcon, Film, Music, Send, UploadCloud, X, PageHeader, PlatformIcon },
+    components: { CalendarClock, Check, CircleAlert, FileIcon, Film, ImageIcon, Images, Music, Send, UploadCloud, X, PageHeader, PlatformIcon, RichTextEditor },
     setup() {
         const router = useRouter();
+        const route = useRoute();
         const form = ref({
-            content: '',
+            content: '', // plain text, filled in by the editor
+            content_html: '',
             platforms: [],
             media: [],
+            thumbnail_media_id: null,
             schedule: false,
             scheduled_at: '',
         });
@@ -188,7 +261,12 @@ export default {
         // An item is "verifying" once its bytes are sent and the server is still checking the file.
         const uploads = ref([]);
         const issues = ref({});
-        const uploading = computed(() => uploads.value.some(u => ['queued', 'uploading', 'verifying'].includes(u.status)));
+        // Optional custom thumbnail for the video: asked after a video is uploaded (thumbChoice: null | 'yes' | 'no')
+        const thumb = ref(null);
+        const thumbChoice = ref(null);
+        const hasVideo = computed(() => uploads.value.some(u => u.kind === 'video' && u.status === 'done'));
+        const tiktokSelected = computed(() => platforms.value.some(p => p.platform_type === 'tiktok' && form.value.platforms.includes(p.id)));
+        const uploading = computed(() => [...uploads.value, thumb.value].some(u => u && ['queued', 'uploading', 'verifying'].includes(u.status)));
         const uploadPosition = computed(() => {
             const active = uploads.value.findIndex(u => ['uploading', 'verifying'].includes(u.status));
             return (active === -1 ? uploads.value.findIndex(u => u.status === 'queued') : active) + 1;
@@ -229,7 +307,11 @@ export default {
                 item.media = response.data;
                 item.progress = 100;
                 item.status = 'done';
-                form.value.media.push(response.data.id);
+                if (item === thumb.value) {
+                    form.value.thumbnail_media_id = response.data.id;
+                } else {
+                    form.value.media.push(response.data.id);
+                }
             } catch (err) {
                 const errorData = err.response?.data || {};
                 let message = errorData.error || errorData.message || err.message;
@@ -281,6 +363,93 @@ export default {
             uploads.value = uploads.value.filter(u => u !== item);
         };
 
+        const handleThumbnail = (event) => {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+
+            thumb.value = reactive({
+                key: nextKey++,
+                file: markRaw(file),
+                name: file.name,
+                size: file.size,
+                kind: 'image',
+                preview: URL.createObjectURL(file),
+                status: 'queued',
+                progress: 0,
+                error: '',
+                media: null,
+            });
+
+            if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                thumb.value.status = 'error';
+                thumb.value.error = 'The thumbnail must be a JPG or PNG image.';
+            } else if (file.size > 2 * 1024 * 1024) {
+                thumb.value.status = 'error';
+                thumb.value.error = 'The thumbnail must be 2MB or smaller.';
+            } else {
+                uploadOne(thumb.value);
+            }
+        };
+
+        const removeThumbnail = () => {
+            if (thumb.value?.preview) URL.revokeObjectURL(thumb.value.preview);
+            thumb.value = null;
+            form.value.thumbnail_media_id = null;
+        };
+
+        const chooseNoThumbnail = () => {
+            removeThumbnail();
+            thumbChoice.value = 'no';
+        };
+
+        // Removing the last video also drops the question and any chosen thumbnail
+        watch(hasVideo, (has) => {
+            if (!has) {
+                removeThumbnail();
+                thumbChoice.value = null;
+            }
+        });
+
+        // Reuse files kept in the user's library (admin setting: keep media after publishing)
+        const libraryOpen = ref(false);
+        const library = ref([]);
+        const libraryLoading = ref(false);
+        const librarySelected = ref([]);
+        const libraryChoices = computed(() => library.value.filter(f => !uploads.value.some(u => u.media?.id === f.id)));
+
+        const toggleLibrary = async () => {
+            libraryOpen.value = !libraryOpen.value;
+            if (!libraryOpen.value) return;
+            libraryLoading.value = true;
+            try {
+                library.value = (await axios.get('/media')).data.data;
+            } catch (err) {
+                library.value = [];
+            } finally {
+                libraryLoading.value = false;
+            }
+        };
+
+        const addFromLibrary = () => {
+            for (const file of libraryChoices.value.filter(f => librarySelected.value.includes(f.id))) {
+                uploads.value.push(reactive({
+                    key: nextKey++,
+                    name: file.filename,
+                    size: file.size,
+                    kind: file.type,
+                    preview: file.type === 'image' ? file.url : null,
+                    status: 'done',
+                    progress: 100,
+                    error: '',
+                    media: file,
+                }));
+                form.value.media.push(file.id);
+            }
+            librarySelected.value = [];
+            libraryOpen.value = false;
+        };
+
         // Ask the server whether each selected platform can publish the uploaded files
         let checkId = 0;
         const refreshIssues = async () => {
@@ -301,7 +470,7 @@ export default {
         };
         watch(() => [[...form.value.platforms], [...form.value.media]], refreshIssues);
 
-        onBeforeUnmount(() => uploads.value.forEach(u => u.preview && URL.revokeObjectURL(u.preview)));
+        onBeforeUnmount(() => [...uploads.value, thumb.value].forEach(u => u?.preview && URL.revokeObjectURL(u.preview)));
 
         const handleSubmit = async () => {
             if (form.value.platforms.length === 0) {
@@ -317,9 +486,14 @@ export default {
             try {
                 const payload = {
                     content: form.value.content,
+                    content_html: form.value.content_html,
                     platforms: form.value.platforms,
                     media: form.value.media,
                 };
+
+                if (form.value.thumbnail_media_id) {
+                    payload.thumbnail_media_id = form.value.thumbnail_media_id;
+                }
 
                 if (form.value.schedule) {
                     payload.scheduled_at = new Date(form.value.scheduled_at).toISOString();
@@ -369,13 +543,43 @@ export default {
             }
         };
 
-        onMounted(loadPlatforms);
+        // "Use as new post" on the Posts page: start from an existing post's text
+        const copyContent = async () => {
+            if (!route.query.copy) return;
+            try {
+                const response = await axios.get(`/posts/${encodeURIComponent(route.query.copy)}`);
+                // posts written before the editor existed only have plain text: keep its line breaks
+                const escape = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                form.value.content_html = response.data.content_html
+                    || response.data.content.split(/\n{2,}/).map(p => `<p>${escape(p).replace(/\n/g, '<br>')}</p>`).join('');
+            } catch (err) {
+                error.value = 'Could not load the post to copy.';
+            }
+        };
+
+        onMounted(() => {
+            loadPlatforms();
+            copyContent();
+        });
 
         return {
             platformLabel,
             form,
             platforms,
             uploads,
+            libraryOpen,
+            libraryLoading,
+            libraryChoices,
+            librarySelected,
+            toggleLibrary,
+            addFromLibrary,
+            thumb,
+            thumbChoice,
+            hasVideo,
+            tiktokSelected,
+            handleThumbnail,
+            removeThumbnail,
+            chooseNoThumbnail,
             issues,
             uploading,
             uploadPosition,

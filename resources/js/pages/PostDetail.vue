@@ -23,8 +23,8 @@
             <!-- Editable: still waiting to be published -->
             <form v-if="editable" class="space-y-6" @submit.prevent="save">
                 <section class="card p-5">
-                    <label class="label" for="edit-content">Content</label>
-                    <textarea id="edit-content" v-model="form.content" rows="8" class="input resize-y" required></textarea>
+                    <span class="label">Content</span>
+                    <RichTextEditor v-model="form.content_html" v-model:text="form.content" />
                     <p class="mt-1.5 text-right text-xs text-slate-400">{{ form.content.length }} characters</p>
                 </section>
 
@@ -64,7 +64,7 @@
 
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <button type="button" class="btn btn-danger-soft" @click="remove"><Trash2 class="h-4 w-4" /> Delete post</button>
-                    <button type="submit" class="btn btn-primary" :disabled="saving || form.platforms.length === 0">
+                    <button type="submit" class="btn btn-primary" :disabled="saving || form.platforms.length === 0 || !form.content.trim()">
                         <Save class="h-4 w-4" /> {{ saving ? 'Saving...' : 'Save changes' }}
                     </button>
                 </div>
@@ -113,6 +113,7 @@ import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2 } from 'lucide-vue-next';
 import PlatformIcon from '../components/PlatformIcon.vue';
+import RichTextEditor from '../components/RichTextEditor.vue';
 import { confirmDialog, toast } from '../feedback.js';
 import { platformLabel } from '../platforms.js';
 
@@ -124,13 +125,13 @@ const toLocalInput = (iso) => {
 
 export default {
     name: 'PostDetail',
-    components: { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2, PlatformIcon },
+    components: { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2, PlatformIcon, RichTextEditor },
     setup() {
         const route = useRoute();
         const router = useRouter();
         const post = ref(null);
         const platforms = ref([]);
-        const form = ref({ content: '', platforms: [], scheduled_at: '' });
+        const form = ref({ content: '', content_html: '', platforms: [], scheduled_at: '' });
         const loading = ref(true);
         const notFound = ref(false);
         const saving = ref(false);
@@ -151,8 +152,12 @@ export default {
                 const [postRes, platformRes] = await Promise.all([axios.get(`/posts/${route.params.id}`), axios.get('/platforms')]);
                 post.value = postRes.data;
                 platforms.value = platformRes.data.filter(p => p.is_active || (postRes.data.platforms || []).includes(p.id));
+                const escape = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 form.value = {
                     content: post.value.content,
+                    // posts saved before the editor existed only have plain text
+                    content_html: post.value.content_html
+                        || post.value.content.split(/\n{2,}/).map(p => `<p>${escape(p).replace(/\n/g, '<br>')}</p>`).join(''),
                     platforms: [...(post.value.platforms || [])],
                     scheduled_at: post.value.scheduled_at ? toLocalInput(post.value.scheduled_at) : '',
                 };
@@ -169,6 +174,7 @@ export default {
             try {
                 await axios.put(`/posts/${post.value.id}`, {
                     content: form.value.content,
+                    content_html: form.value.content_html,
                     platforms: form.value.platforms,
                     scheduled_at: new Date(form.value.scheduled_at).toISOString(),
                 });

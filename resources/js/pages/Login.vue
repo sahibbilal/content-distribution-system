@@ -99,7 +99,7 @@ export default {
         };
 
         onMounted(() => loadSiteContent().catch(() => {}));
-        const registrationOpen = computed(() => siteContent.value?.registration_open !== false);
+        const registrationOpen = computed(() => siteContent.value?.registration_open === true); // link only once sign-ups are known to be open
 
         return {
             registrationOpen,

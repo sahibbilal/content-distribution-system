@@ -6,6 +6,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
@@ -21,7 +22,15 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        'avatar_path',
     ];
+
+    protected $appends = ['avatar_url'];
+
+    public function getAvatarUrlAttribute(): ?string
+    {
+        return $this->avatar_path ? Storage::disk('public')->url($this->avatar_path) : null;
+    }
 
     protected function casts(): array
     {

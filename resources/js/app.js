@@ -15,7 +15,14 @@ import AdminEmail from './pages/AdminEmail.vue';
 import Dashboard from './pages/Dashboard.vue';
 import CreatePost from './pages/CreatePost.vue';
 import Settings from './pages/Settings.vue';
+import Profile from './pages/Profile.vue';
 import Platforms from './pages/Platforms.vue';
+import Posts from './pages/Posts.vue';
+import PostDetail from './pages/PostDetail.vue';
+import Calendar from './pages/Calendar.vue';
+import Media from './pages/Media.vue';
+import AdminSettings from './pages/AdminSettings.vue';
+import DataDeletion from './pages/DataDeletion.vue';
 import PlatformDetail from './pages/PlatformDetail.vue';
 
 // Configure axios
@@ -110,13 +117,20 @@ const routes = [
     { path: '/', component: Home, meta: { requiresGuest: true } },
     { path: '/terms', component: Terms },
     { path: '/privacy', component: Privacy },
+    { path: '/data-deletion', component: DataDeletion },
     { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true } },
     { path: '/admin', component: Admin, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/users', component: AdminUsers, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/ai', component: AdminAi, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/email', component: AdminEmail, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/admin/settings', component: AdminSettings, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/create-post', component: CreatePost, meta: { requiresAuth: true } },
+    { path: '/posts', component: Posts, meta: { requiresAuth: true } },
+    { path: '/posts/:id', component: PostDetail, meta: { requiresAuth: true } },
+    { path: '/calendar', component: Calendar, meta: { requiresAuth: true } },
+    { path: '/media', component: Media, meta: { requiresAuth: true } },
     { path: '/settings', component: Settings, meta: { requiresAuth: true } },
+    { path: '/profile', component: Profile, meta: { requiresAuth: true } },
     { path: '/platforms', component: Platforms, meta: { requiresAuth: true } },
     { path: '/platforms/:platform', component: PlatformDetail, meta: { requiresAuth: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
