@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Post;
 use App\Jobs\PublishPostJob;
+use App\Support\PlatformMediaRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -29,6 +30,17 @@ class PostController extends Controller
             'media' => 'nullable|array',
             'media.*' => 'exists:media,id',
         ]);
+
+        // Refuse file/platform combinations that can't be published (e.g. an image on YouTube)
+        $problems = PlatformMediaRules::forPost($request->user()->id, $request->platforms, $request->media ?? []);
+        if ($problems) {
+            $messages = collect($problems)->flatten()->all();
+
+            return response()->json([
+                'message' => implode("\n", $messages),
+                'errors' => ['media' => $messages],
+            ], 422);
+        }
 
         $post = Post::create([
             'user_id' => $request->user()->id,
