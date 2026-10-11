@@ -1,6 +1,11 @@
 <template>
-    <AuthLayout :title="registered ? 'Check your email' : 'Create your account'" :subtitle="registered ? '' : 'Start publishing to all your platforms in minutes.'">
-        <template v-if="registered">
+    <AuthLayout :title="registrationClosed ? 'Registration is closed' : registered ? 'Check your email' : 'Create your account'" :subtitle="registered || registrationClosed ? '' : 'Start publishing to all your platforms in minutes.'">
+        <template v-if="registrationClosed">
+            <p class="text-sm leading-6 text-slate-600">New accounts can't be created right now. If you already have an account you can still log in.</p>
+            <router-link to="/login" class="btn btn-primary mt-6 w-full">Go to login</router-link>
+        </template>
+
+        <template v-else-if="registered">
             <div class="flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand-600">
                 <MailCheck class="h-6 w-6" />
             </div>
@@ -67,10 +72,11 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import PasswordInput from '../components/PasswordInput.vue';
 import AuthLayout from '../components/AuthLayout.vue';
+import { siteContent, loadSiteContent } from '../siteContent.js';
 import { Circle, CircleCheck, MailCheck } from 'lucide-vue-next';
 
 export default {
@@ -144,7 +150,11 @@ export default {
             }
         };
 
+        onMounted(() => loadSiteContent().catch(() => {}));
+        const registrationClosed = computed(() => siteContent.value?.registration_open === false);
+
         return {
+            registrationClosed,
             form,
             loading,
             error,

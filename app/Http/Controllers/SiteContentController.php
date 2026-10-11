@@ -41,6 +41,9 @@ class SiteContentController extends Controller
             'payment_methods.*.details' => 'array|max:10',
             'payment_methods.*.details.*.label' => 'required|string|max:60',
             'payment_methods.*.details.*.value' => 'required|string|max:200',
+
+            'registration_open' => 'sometimes|boolean',
+            'delete_media_after_publish' => 'sometimes|boolean',
         ]);
 
         foreach ($data as $key => $value) {

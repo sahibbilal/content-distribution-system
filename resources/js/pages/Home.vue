@@ -7,7 +7,7 @@
                 <nav class="flex items-center gap-2 sm:gap-3">
                     <a href="#pricing" class="btn btn-ghost hidden sm:inline-flex">Pricing</a>
                     <router-link to="/login" class="btn btn-ghost">Log in</router-link>
-                    <router-link to="/register" class="btn btn-primary">Get started</router-link>
+                    <router-link v-if="registrationOpen" to="/register" class="btn btn-primary">Get started</router-link>
                 </nav>
             </div>
         </header>
@@ -25,9 +25,10 @@
                     <h1 class="text-4xl font-bold tracking-tight text-brand-950 sm:text-6xl">{{ content.hero.title }}</h1>
                     <p class="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600">{{ content.hero.subtitle }}</p>
                     <div class="mt-10 flex flex-wrap justify-center gap-3">
-                        <router-link to="/register" class="btn btn-primary px-6 py-3">
+                        <router-link v-if="registrationOpen" to="/register" class="btn btn-primary px-6 py-3">
                             Create account <ArrowRight class="h-4 w-4" />
                         </router-link>
+                        <span v-else class="badge badge-neutral self-center px-4 py-2 text-sm">Registration is currently closed</span>
                         <router-link to="/login" class="btn btn-secondary px-6 py-3">Log in</router-link>
                     </div>
                     <div class="mt-14 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-slate-500">
@@ -90,11 +91,11 @@
                                 <Check class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" /> {{ item }}
                             </li>
                         </ul>
-                        <router-link to="/register" class="btn mt-8" :class="plan.featured ? 'btn-primary' : 'btn-secondary'">Get started</router-link>
+                        <router-link v-if="registrationOpen" to="/register" class="btn mt-8" :class="plan.featured ? 'btn-primary' : 'btn-secondary'">Get started</router-link>
                     </div>
                 </div>
 
-                <div class="card mx-auto mt-10 max-w-3xl p-7">
+                <div v-if="registrationOpen" class="card mx-auto mt-10 max-w-3xl p-7">
                     <h3 class="text-lg font-semibold">How to join</h3>
                     <ol class="mt-4 space-y-3 text-sm leading-6 text-slate-600">
                         <li class="flex gap-3">
@@ -141,12 +142,14 @@
             <router-link to="/terms" class="hover:text-slate-900">Terms of Service</router-link>
             <span class="mx-1">&middot;</span>
             <router-link to="/privacy" class="hover:text-slate-900">Privacy Policy</router-link>
+            <span class="mx-1">&middot;</span>
+            <router-link to="/data-deletion" class="hover:text-slate-900">Data Deletion</router-link>
         </footer>
     </div>
 </template>
 
 <script>
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { ArrowRight, Check, Layers } from 'lucide-vue-next';
 import BrandLogo from '../components/BrandLogo.vue';
 import PlatformIcon from '../components/PlatformIcon.vue';
@@ -163,7 +166,9 @@ export default {
             { title: 'Publish', text: 'Publish immediately or schedule it for later.' },
             { title: 'Track', text: 'Track the status of every post per platform.' },
         ];
-        return { content: siteContent, year: new Date().getFullYear(), steps };
+        // Admin setting: when registration is closed the sign-up buttons are hidden
+        const registrationOpen = computed(() => siteContent.value?.registration_open !== false);
+        return { content: siteContent, year: new Date().getFullYear(), steps, registrationOpen };
     },
 };
 </script>

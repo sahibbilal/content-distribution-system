@@ -46,4 +46,9 @@ return [
 
     // e.g. ['name' => 'JazzCash', 'details' => [['label' => 'Account title', 'value' => '...']]]
     'payment_methods' => [],
+
+    // Admin settings. registration_open is public so the register page can say it is closed.
+    'registration_open' => true,
+    // true: uploaded media is removed once a post is published; false: kept in each user's media library
+    'delete_media_after_publish' => true,
 ];

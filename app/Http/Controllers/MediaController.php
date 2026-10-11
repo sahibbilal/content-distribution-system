@@ -98,6 +98,42 @@ class MediaController extends Controller
         ], 201);
     }
 
+    /** The signed-in user's own files only, newest first (the media library) */
+    public function index(Request $request)
+    {
+        $media = Media::where('user_id', $request->user()->id)
+            ->with('post:id,status')
+            ->orderBy('created_at', 'desc')
+            ->paginate(24);
+
+        $media->getCollection()->transform(fn (Media $m) => [
+            'id' => $m->id,
+            'filename' => $m->original_filename,
+            'url' => Storage::url($m->path),
+            'type' => $m->type,
+            'size' => (int) $m->size,
+            'created_at' => $m->created_at,
+            // a file waiting on a scheduled post can't be deleted yet
+            'in_use' => $m->post?->status === 'scheduled',
+        ]);
+
+        return response()->json($media);
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $media = Media::where('user_id', $request->user()->id)->with('post:id,status')->findOrFail($id);
+
+        if ($media->post?->status === 'scheduled') {
+            return response()->json(['message' => 'This file is attached to a scheduled post. Edit or delete that post first.'], 422);
+        }
+
+        Storage::disk('public')->delete($media->path);
+        $media->delete();
+
+        return response()->json(['message' => 'File deleted']);
+    }
+
     /**
      * Check the chosen platforms against the uploaded files, so the UI can show problems
      * (e.g. an image on YouTube) before the user publishes.

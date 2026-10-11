@@ -21,7 +21,7 @@
             <p v-if="needsVerification" class="text-center text-sm">
                 <a href="#" class="font-medium text-brand-700 hover:text-brand-800" @click.prevent="resend">Resend verification email</a>
             </p>
-            <p class="text-center text-sm text-slate-600">
+            <p v-if="registrationOpen" class="text-center text-sm text-slate-600">
                 Don't have an account?
                 <router-link to="/register" class="font-semibold text-brand-700 hover:text-brand-800">Register</router-link>
             </p>
@@ -30,11 +30,12 @@
 </template>
 
 <script>
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import PasswordInput from '../components/PasswordInput.vue';
 import AuthLayout from '../components/AuthLayout.vue';
+import { siteContent, loadSiteContent } from '../siteContent.js';
 
 export default {
     name: 'Login',
@@ -97,7 +98,11 @@ export default {
             }
         };
 
+        onMounted(() => loadSiteContent().catch(() => {}));
+        const registrationOpen = computed(() => siteContent.value?.registration_open !== false);
+
         return {
+            registrationOpen,
             form,
             loading,
             error,

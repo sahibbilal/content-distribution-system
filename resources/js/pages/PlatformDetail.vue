@@ -83,42 +83,12 @@
                 <div>
                     <h2 class="card-title">Connect with Facebook</h2>
                     <p class="mt-1 text-sm text-slate-500">
-                        Authorize and connect your Facebook Pages and Instagram accounts. You'll be able to select which Page to connect.
+                        Authorize and connect your Facebook Page to publish posts to it.
                     </p>
                 </div>
                 <p v-if="!fbSDKReady" class="text-center text-sm text-slate-500">Loading Facebook login...</p>
                 <!-- The Facebook SDK script rewrites this element's contents, so Vue must not manage any children -->
                 <div class="flex min-h-[44px] items-center justify-center" id="fb-login-button-container"></div>
-
-                <div class="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-slate-400">
-                    <span class="h-px flex-1 bg-slate-200"></span> or connect manually <span class="h-px flex-1 bg-slate-200"></span>
-                </div>
-
-                <form @submit.prevent="handleManualConnect" class="space-y-5">
-                    <div>
-                        <label class="label">Page ID</label>
-                        <input v-model="credentials.page_id" type="text" class="input" placeholder="Enter your Facebook Page ID" />
-                        <p class="hint">Your Facebook Page ID.</p>
-                    </div>
-                    <div>
-                        <label class="label">Access token</label>
-                        <input v-model="credentials.access_token" type="text" class="input" placeholder="Enter your Page Access Token" />
-                        <p class="hint">Page Access Token with the pages_manage_posts permission.</p>
-                    </div>
-                    <div>
-                        <label class="label">Instagram account ID (optional)</label>
-                        <input v-model="credentials.instagram_account_id" type="text" class="input" placeholder="Instagram Business Account ID" />
-                        <p class="hint">For posting to Instagram (connected to your Facebook Page).</p>
-                    </div>
-                    <div class="flex flex-wrap gap-3">
-                        <button type="button" @click="testConnection" class="btn btn-secondary" :disabled="testingConnection || !hasCredentials">
-                            {{ testingConnection ? 'Testing...' : 'Test connection' }}
-                        </button>
-                        <button type="submit" class="btn btn-primary" :disabled="!hasCredentials || connecting">
-                            {{ connecting ? 'Connecting...' : 'Save credentials' }}
-                        </button>
-                    </div>
-                </form>
             </section>
 
             <!-- YouTube -->
@@ -276,8 +246,6 @@ export default {
             const creds = credentials.value;
             
             switch (platformType) {
-                case 'facebook':
-                    return !!(creds.access_token && (creds.page_id || creds.instagram_account_id));
                 case 'linkedin':
                     return !!creds.access_token;
                 case 'tiktok':

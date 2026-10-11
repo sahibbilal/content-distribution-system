@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Post;
 use App\Models\Platform;
+use App\Models\SiteContent;
 use App\Services\PlatformServiceFactory;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -86,9 +87,10 @@ class PublishPostJob implements ShouldQueue
             'platform_statuses' => $platformStatuses,
         ]);
 
-        // Uploaded media is only needed for publishing: delete it once every platform succeeded
-        // (kept if any platform failed, so the post can still be retried)
-        if (!collect($platformStatuses)->contains('status', 'failed')) {
+        // Admin setting: uploaded media is only needed for publishing, so delete it once every platform
+        // succeeded (kept if any platform failed, so the post can still be retried). When the admin
+        // chooses to keep media, it stays in the user's media library for reuse.
+        if (SiteContent::setting('delete_media_after_publish') && !collect($platformStatuses)->contains('status', 'failed')) {
             foreach ($this->post->media as $m) {
                 Storage::disk('public')->delete($m->path);
                 $m->delete();

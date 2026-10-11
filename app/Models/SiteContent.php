@@ -23,6 +23,12 @@ class SiteContent extends Model
         return $content;
     }
 
+    /** One saved (or default) setting, e.g. SiteContent::setting('registration_open') */
+    public static function setting(string $key): mixed
+    {
+        return static::current()[$key] ?? null;
+    }
+
     public static function store(string $key, mixed $value): void
     {
         static::updateOrCreate(['key' => $key], ['value' => json_encode($value)]);

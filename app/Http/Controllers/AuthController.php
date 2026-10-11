@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SiteContent;
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
@@ -13,6 +14,10 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        if (!SiteContent::setting('registration_open')) {
+            return $this->registrationClosed();
+        }
+
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
@@ -118,6 +123,14 @@ class AuthController extends Controller
         ]);
     }
 
+    private function registrationClosed()
+    {
+        return response()->json([
+            'message' => 'Registration is currently closed.',
+            'registration_closed' => true,
+        ], 403);
+    }
+
     public function me(Request $request)
     {
         return response()->json($request->user());
@@ -165,6 +178,10 @@ class AuthController extends Controller
                 ->first();
 
             if (!$user) {
+                if (!SiteContent::setting('registration_open')) {
+                    return $this->registrationClosed();
+                }
+
                 // Create new user from Facebook data
                 $user = User::create([
                     'name' => $fbUser['name'] ?? 'Facebook User',

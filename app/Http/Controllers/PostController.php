@@ -3,16 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Models\Post;
+use App\Models\SiteContent;
 use App\Jobs\PublishPostJob;
 use App\Support\PlatformMediaRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class PostController extends Controller
 {
     public function index(Request $request)
     {
+        $request->validate(['status' => 'nullable|in:published,scheduled,failed,draft']);
+
         $posts = Post::where('user_id', $request->user()->id)
+            ->when($request->status, fn ($query, $status) => $query->where('status', $status))
             ->with('media')
             ->orderBy('created_at', 'desc')
             ->paginate(15);
@@ -131,6 +136,66 @@ class PostController extends Controller
             ->findOrFail($id);
 
         return response()->json($post);
+    }
+
+    /**
+     * Edit a post that is still waiting to be published: text, platforms and publish time.
+     * Published posts can't be edited because their content is already live on the platforms.
+     */
+    public function update(Request $request, $id)
+    {
+        $post = Post::where('user_id', $request->user()->id)->with('media')->findOrFail($id);
+
+        if ($post->status !== 'scheduled') {
+            return response()->json(['message' => 'Only scheduled posts can be edited.'], 422);
+        }
+
+        $data = $request->validate([
+            'content' => 'required|string',
+            'platforms' => 'required|array|min:1',
+            'platforms.*' => 'exists:platforms,id',
+            'scheduled_at' => 'required|date|after:now',
+        ]);
+
+        $problems = PlatformMediaRules::forPost($request->user()->id, $data['platforms'], $post->media->pluck('id')->all());
+        if ($problems) {
+            $messages = collect($problems)->flatten()->all();
+
+            return response()->json([
+                'message' => implode("\n", $messages),
+                'errors' => ['media' => $messages],
+            ], 422);
+        }
+
+        DB::transaction(function () use ($post, $data) {
+            $post->update($data);
+            // per model (not a bulk update) so the ISO timestamp is cast to a DB datetime
+            foreach ($post->schedules()->where('status', 'pending')->get() as $schedule) {
+                $schedule->update(['scheduled_at' => $data['scheduled_at']]);
+            }
+        });
+
+        return response()->json($post->fresh(['media', 'schedules']));
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $post = Post::where('user_id', $request->user()->id)->with('media')->findOrFail($id);
+
+        // Deleting a post would cascade to its media rows and leave the files behind,
+        // so either remove the files or release them back to the user's library
+        foreach ($post->media as $media) {
+            if (SiteContent::setting('delete_media_after_publish')) {
+                Storage::disk('public')->delete($media->path);
+                $media->delete();
+            } else {
+                $media->update(['post_id' => null]);
+            }
+        }
+
+        $post->delete();
+
+        return response()->json(['message' => 'Post deleted successfully']);
     }
 }
 
