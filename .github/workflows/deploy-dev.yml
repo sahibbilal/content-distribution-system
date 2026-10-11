@@ -138,6 +138,9 @@ jobs:
           fi
           [ -f vendor/autoload.php ] || { echo "ERROR: vendor/autoload.php missing"; exit 1; }
 
+          # public/storage is gitignored (not rsynced), so uploaded media 404s without this link
+          [ -e public/storage ] || php artisan storage:link || echo "WARNING: storage:link failed"
+
           php artisan migrate --force || { echo "ERROR: migration failed"; php artisan migrate:status || true; exit 1; }
 
           # View and config caches only; the application cache (e.g. OAuth state tokens) is left alone

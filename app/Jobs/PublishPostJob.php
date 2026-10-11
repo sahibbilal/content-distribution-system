@@ -85,6 +85,15 @@ class PublishPostJob implements ShouldQueue
             'platform_statuses' => $platformStatuses,
         ]);
 
+        // Uploaded media is only needed for publishing: delete it once every platform succeeded
+        // (kept if any platform failed, so the post can still be retried)
+        if (!collect($platformStatuses)->contains('status', 'failed')) {
+            foreach ($this->post->media as $m) {
+                Storage::disk('public')->delete($m->path);
+                $m->delete();
+            }
+        }
+
         // Update schedule status if exists
         $schedule = $this->post->schedules()->where('status', 'pending')->first();
         if ($schedule) {
