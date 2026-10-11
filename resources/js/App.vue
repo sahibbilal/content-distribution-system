@@ -32,15 +32,17 @@
                 </nav>
 
                 <div class="shrink-0 border-t border-slate-100 p-3">
-                    <div class="flex items-center gap-3 rounded-lg p-2" :class="{ 'md:justify-center': sidebarCollapsed }">
-                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
+                    <router-link to="/profile" class="flex items-center gap-3 rounded-lg p-2 transition hover:bg-slate-50" :class="{ 'md:justify-center': sidebarCollapsed }"
+                        title="Edit your profile" @click="closeSidebarMobile">
+                        <img v-if="user?.avatar_url" :src="user.avatar_url" alt="" class="h-9 w-9 shrink-0 rounded-full object-cover" />
+                        <div v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
                             {{ initial }}
                         </div>
                         <div class="min-w-0 flex-1" :class="{ 'md:hidden': sidebarCollapsed }">
                             <p class="truncate text-sm font-medium text-slate-900">{{ user?.name || 'Account' }}</p>
                             <p class="truncate text-xs text-slate-500">{{ user?.email }}</p>
                         </div>
-                    </div>
+                    </router-link>
                     <button @click="logout" class="nav-link mt-1 w-full hover:bg-red-50! hover:text-red-700!"
                         :class="{ 'md:justify-center md:px-0': sidebarCollapsed }" title="Logout">
                         <LogOut class="h-5 w-5 shrink-0" />
@@ -73,7 +75,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
-import { LayoutDashboard, PenSquare, Link2, Settings, ShieldCheck, LogOut, Menu, PanelLeftClose } from 'lucide-vue-next';
+import { CalendarDays, Images, LayoutDashboard, Link2, ListChecks, LogOut, Menu, PanelLeftClose, PenSquare, Settings, ShieldCheck } from 'lucide-vue-next';
 import BrandLogo from './components/BrandLogo.vue';
 import FeedbackHost from './components/FeedbackHost.vue';
 
@@ -104,12 +106,20 @@ export default {
         const navItems = [
             { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { to: '/create-post', label: 'Create Post', icon: PenSquare },
+            { to: '/posts', label: 'Posts', icon: ListChecks },
+            { to: '/calendar', label: 'Calendar', icon: CalendarDays },
+            { to: '/media', label: 'Media', icon: Images },
             { to: '/platforms', label: 'Platforms', icon: Link2 },
             { to: '/settings', label: 'Settings', icon: Settings },
         ];
         router.afterEach(() => {
             isAuthenticated.value = !!localStorage.getItem('token');
             isAdmin.value = readIsAdmin();
+            user.value = readUser();
+        });
+
+        // The profile page changes the stored user without navigating
+        window.addEventListener('user-updated', () => {
             user.value = readUser();
         });
 

@@ -12,11 +12,13 @@ class Post extends Model
     protected $fillable = [
         'user_id',
         'content',
+        'content_html',
         'platforms',
         'status',
         'scheduled_at',
         'published_at',
         'platform_statuses',
+        'thumbnail_media_id',
     ];
 
     protected $casts = [
@@ -34,6 +36,12 @@ class Post extends Model
     public function media()
     {
         return $this->hasMany(Media::class);
+    }
+
+    /** Custom cover image for the post's video (not part of the post's media list) */
+    public function thumbnail()
+    {
+        return $this->belongsTo(Media::class, 'thumbnail_media_id');
     }
 
     public function schedules()

@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PlatformController;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\SiteContentController;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,10 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
+        Route::put('/profile', [ProfileController::class, 'update']);
+        Route::post('/avatar', [ProfileController::class, 'avatar'])->middleware('throttle:20,1');
+        Route::delete('/avatar', [ProfileController::class, 'removeAvatar']);
+        Route::put('/password', [ProfileController::class, 'password'])->middleware('throttle:6,1');
     });
 });
 

@@ -59,7 +59,8 @@
         <ul>
             <li>Disconnecting a platform deletes its stored credentials.</li>
             <li>You can ask us to delete your account and all associated data at any time using the contact address
-                below. We will do so within a reasonable time, except where we must keep information by law.</li>
+                below. We will do so within a reasonable time, except where we must keep information by law.
+                See <router-link to="/data-deletion">Data Deletion Instructions</router-link> for the steps.</li>
         </ul>
 
         <h2>7. Security</h2>

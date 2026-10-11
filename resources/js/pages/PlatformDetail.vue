@@ -86,9 +86,11 @@
                         Authorize and connect your Facebook Page to publish posts to it.
                     </p>
                 </div>
-                <p v-if="!fbSDKReady" class="text-center text-sm text-slate-500">Loading Facebook login...</p>
-                <!-- The Facebook SDK script rewrites this element's contents, so Vue must not manage any children -->
-                <div class="flex min-h-[44px] items-center justify-center" id="fb-login-button-container"></div>
+                <button @click="loginWithFacebook" class="btn w-full bg-slate-900 text-white hover:bg-black" :disabled="linkingFacebook">
+                    <PlatformIcon type="facebook" :size="18" class="rounded-sm bg-white p-px" />
+                    <span v-if="!linkingFacebook">Log in with Facebook</span>
+                    <span v-else>Connecting...</span>
+                </button>
             </section>
 
             <!-- YouTube -->
@@ -227,7 +229,6 @@ export default {
         const credentials = ref({});
         const isConnected = ref(false);
         const platformId = ref(null);
-        const fbSDKReady = ref(false);
 
         const platformInfo = computed(() => {
             const platforms = {
@@ -375,76 +376,26 @@ export default {
             }
         };
 
-        // Global function for Facebook login button callback
-        const checkLoginState = () => {
-            if (typeof FB !== 'undefined') {
-                FB.getLoginStatus(function(response) {
-                    statusChangeCallback(response);
-                });
-            }
-        };
+        const loginWithFacebook = async () => {
+            if (platformType !== 'facebook') return;
 
-        // Global callback function for Facebook login status
-        const statusChangeCallback = async (response) => {
-            console.log('Facebook login status changed:', response);
-            
-            if (response.status === 'connected') {
-                // User is logged into Facebook
-                linkingFacebook.value = true;
-                error.value = '';
-                success.value = '';
-                
-                try {
-                    // Get user's pages
-                    const authResponse = response.authResponse;
-                    
-                    // First, verify the token with our backend and get pages
-                    const pagesResponse = await axios.get('/platforms/facebook/oauth/pages', {
-                        params: {
-                            access_token: authResponse.accessToken
-                        }
-                    });
-                    
-                    if (pagesResponse.data.pages && pagesResponse.data.pages.length > 0) {
-                        // If multiple pages, let user select (for now, use first page)
-                        const selectedPage = pagesResponse.data.pages[0];
-                        
-                        // Connect the platform with the page credentials
-                        await axios.post('/platforms/facebook/connect', {
-                            credentials: {
-                                access_token: selectedPage.access_token,
-                                page_id: selectedPage.id,
-                                page_name: selectedPage.name,
-                                instagram_account_id: selectedPage.instagram_business_account?.id || null,
-                            }
-                        });
-                        
-                        success.value = `Successfully connected to ${selectedPage.name}!`;
-                        await loadPlatform();
-                    } else {
-                        error.value = 'No Facebook Pages found. Please create a Facebook Page first.';
-                    }
-                } catch (err) {
-                    error.value = err.response?.data?.message || 'Failed to connect Facebook account';
-                    console.error('Facebook connection error:', err);
-                } finally {
+            linkingFacebook.value = true;
+            error.value = '';
+            success.value = '';
+
+            try {
+                const response = await axios.get('/platforms/facebook/oauth/initiate');
+                if (response.data.auth_url) {
+                    window.location.href = response.data.auth_url;
+                } else {
+                    error.value = 'Failed to initiate Facebook OAuth';
                     linkingFacebook.value = false;
                 }
-            } else if (response.status === 'not_authorized') {
-                // User is logged into Facebook but not authorized for this app
-                error.value = 'Please authorize this app to access your Facebook account.';
-                linkingFacebook.value = false;
-            } else {
-                // User is not logged into Facebook
+            } catch (err) {
+                error.value = err.response?.data?.message || 'Failed to initiate Facebook login';
                 linkingFacebook.value = false;
             }
         };
-
-        // Make functions available globally for Facebook SDK callbacks
-        if (typeof window !== 'undefined') {
-            window.checkLoginState = checkLoginState;
-            window.statusChangeCallback = statusChangeCallback;
-        }
 
         const testConnection = () => {
             if (!hasCredentials.value) {
@@ -606,7 +557,7 @@ export default {
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
 
-            // Handle Facebook OAuth callback (fallback for server-side OAuth)
+            // Handle Facebook OAuth callback
             if (facebookSuccess) {
                 success.value = facebookMessage ? decodeURIComponent(facebookMessage) : 'Facebook connected successfully!';
                 loadPlatform();
@@ -616,106 +567,6 @@ export default {
             if (facebookError) {
                 error.value = decodeURIComponent(facebookError);
                 window.history.replaceState({}, document.title, window.location.pathname);
-            }
-            
-            // Check Facebook login status if on Facebook platform page
-            if (platformType === 'facebook' && typeof window !== 'undefined') {
-                // Function to render Facebook button
-                const renderFacebookButton = () => {
-                    if (typeof FB === 'undefined') {
-                        return false;
-                    }
-                    
-                    // Wait for DOM to be ready with multiple attempts
-                    const tryRender = (attempts = 0) => {
-                        const container = document.getElementById('fb-login-button-container');
-                        
-                        if (!container) {
-                            if (attempts < 20) {
-                                // Try again after a short delay (max 2 seconds)
-                                setTimeout(() => tryRender(attempts + 1), 100);
-                                return;
-                            } else {
-                                console.error('Facebook login button container not found after multiple attempts');
-                                error.value = 'Failed to load Facebook login button. Please refresh the page.';
-                                return;
-                            }
-                        }
-                        
-                        fbSDKReady.value = true;
-                        
-                        // Check if button already rendered
-                        if (container.querySelector('iframe')) {
-                            console.log('Facebook button already rendered');
-                            return;
-                        }
-                        
-                        // Create the XFBML button element
-                        const buttonHTML = `
-                            <fb:login-button 
-                                onlogin="checkLoginState();"
-                                data-size="large"
-                                data-button-type="login_with"
-                                data-layout="default"
-                                data-auto-logout-link="false"
-                                data-use-continue-as="false">
-                            </fb:login-button>
-                        `;
-                        
-                        container.innerHTML = buttonHTML;
-                        
-                        // Parse XFBML tags (Facebook login button)
-                        try {
-                            FB.XFBML.parse(container);
-                            console.log('Facebook login button parsed successfully');
-                            
-                            // Double check after a short delay
-                            setTimeout(() => {
-                                if (!container.querySelector('iframe')) {
-                                    console.warn('Facebook button not rendered, trying fallback');
-                                    // Fallback: try parsing the entire document
-                                    FB.XFBML.parse();
-                                }
-                            }, 1000);
-                        } catch (e) {
-                            console.error('Error parsing Facebook XFBML:', e);
-                            error.value = 'Failed to load Facebook login button. Please refresh the page.';
-                        }
-                    };
-                    
-                    // Use nextTick first, then try rendering
-                    nextTick(() => {
-                        tryRender();
-                    });
-                    
-                    return true;
-                };
-                
-                // Wait a bit for Vue to render the component
-                setTimeout(() => {
-                    // Try to render immediately if SDK is ready
-                    if (renderFacebookButton()) {
-                        // Check current login status
-                        checkLoginState();
-                    } else {
-                        // Wait for SDK to load
-                        const checkFB = setInterval(() => {
-                            if (typeof FB !== 'undefined' && renderFacebookButton()) {
-                                clearInterval(checkFB);
-                                // Check current login status
-                                checkLoginState();
-                            }
-                        }, 100);
-                        
-                        // Clear interval after 10 seconds
-                        setTimeout(() => {
-                            clearInterval(checkFB);
-                            if (!fbSDKReady.value) {
-                                error.value = 'Facebook SDK failed to load. Please refresh the page.';
-                            }
-                        }, 10000);
-                    }
-                }, 200); // Small delay to ensure Vue has rendered
             }
         });
 
@@ -730,6 +581,7 @@ export default {
             linkingTwitter,
             linkingInstagram,
             linkingYouTube,
+            linkingFacebook,
             error,
             success,
             testResult,
@@ -737,11 +589,11 @@ export default {
             credentials,
             isConnected,
             hasCredentials,
-            fbSDKReady,
             loginWithLinkedIn,
             loginWithTikTok,
             loginWithTwitter,
             loginWithInstagram,
+            loginWithFacebook,
             loginWithYouTube,
             testConnection,
             testSavedConnection,

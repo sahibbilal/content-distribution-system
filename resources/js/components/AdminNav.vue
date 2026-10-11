@@ -19,6 +19,7 @@ export default {
             { to: '/admin/users', label: 'Users' },
             { to: '/admin/ai', label: 'AI integrations' },
             { to: '/admin/email', label: 'Email' },
+            { to: '/admin/settings', label: 'Settings' },
         ];
         return { tabs };
     },

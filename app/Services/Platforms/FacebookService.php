@@ -5,6 +5,7 @@ namespace App\Services\Platforms;
 use App\Services\PlatformServiceInterface;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class FacebookService implements PlatformServiceInterface
 {
@@ -42,6 +43,11 @@ class FacebookService implements PlatformServiceInterface
             'has_content' => !empty($content),
             'has_media' => !empty($media),
         ]);
+
+        $video = collect($media)->first(fn ($m) => ($m['type'] ?? '') === 'video');
+        if ($video) {
+            return $this->publishVideoToFacebook($content, $pageId, $accessToken, $video);
+        }
 
         $url = "https://graph.facebook.com/v18.0/{$pageId}/feed";
 
@@ -94,6 +100,44 @@ class FacebookService implements PlatformServiceInterface
         $errorMessage = $errorData['error']['message'] ?? $errorBody;
         
         throw new \Exception('Facebook API error: ' . $errorMessage);
+    }
+
+    /**
+     * Upload a video to the Page's /videos edge, with the custom thumbnail ("thumb") if one was chosen.
+     */
+    private function publishVideoToFacebook(string $content, string $pageId, string $accessToken, array $video): array
+    {
+        $disk = Storage::disk('public');
+        if (empty($video['path']) || !$disk->exists($video['path'])) {
+            throw new \Exception('The video file could not be found on the server.');
+        }
+
+        $request = Http::timeout(1800)->attach('source', $disk->get($video['path']), basename($video['path']));
+
+        $thumbPath = $video['thumbnail']['path'] ?? null;
+        $hasThumb = $thumbPath && $disk->exists($thumbPath);
+        if ($hasThumb) {
+            $request = $request->attach('thumb', $disk->get($thumbPath), basename($thumbPath));
+        }
+
+        $response = $request->post("https://graph.facebook.com/v18.0/{$pageId}/videos", [
+            'description' => $content,
+            'access_token' => $accessToken,
+        ]);
+
+        $videoId = $response->json('id');
+        if (!$response->successful() || !$videoId) {
+            throw new \Exception('Facebook video upload failed: ' . ($response->json('error.message') ?? $response->body()));
+        }
+
+        return [
+            'success' => true,
+            'post_id' => $videoId,
+            'post_url' => "https://www.facebook.com/{$videoId}",
+            'url' => "https://www.facebook.com/{$videoId}",
+            'platform' => 'facebook',
+            'message' => 'Video published on Facebook' . ($hasThumb ? ' with custom thumbnail' : ''),
+        ];
     }
 
     /**

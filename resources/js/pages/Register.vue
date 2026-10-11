@@ -1,6 +1,10 @@
 <template>
     <AuthLayout :title="registrationClosed ? 'Registration is closed' : registered ? 'Check your email' : 'Create your account'" :subtitle="registered || registrationClosed ? '' : 'Start publishing to all your platforms in minutes.'">
-        <template v-if="registrationClosed">
+        <div v-if="!settingKnown" class="space-y-5">
+            <div v-for="n in 3" :key="n" class="h-11 animate-pulse rounded-lg bg-slate-100"></div>
+        </div>
+
+        <template v-else-if="registrationClosed">
             <p class="text-sm leading-6 text-slate-600">New accounts can't be created right now. If you already have an account you can still log in.</p>
             <router-link to="/login" class="btn btn-primary mt-6 w-full">Go to login</router-link>
         </template>
@@ -150,11 +154,15 @@ export default {
             }
         };
 
-        onMounted(() => loadSiteContent().catch(() => {}));
+        // don't show the form until we know registration is open (if the setting can't be loaded, the server still enforces it)
+        const loadFailed = ref(false);
+        onMounted(() => loadSiteContent().catch(() => { loadFailed.value = true; }));
+        const settingKnown = computed(() => !!siteContent.value || loadFailed.value);
         const registrationClosed = computed(() => siteContent.value?.registration_open === false);
 
         return {
             registrationClosed,
+            settingKnown,
             form,
             loading,
             error,

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Media;
+use App\Models\Post;
 use App\Support\PlatformMediaRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -124,7 +125,8 @@ class MediaController extends Controller
     {
         $media = Media::where('user_id', $request->user()->id)->with('post:id,status')->findOrFail($id);
 
-        if ($media->post?->status === 'scheduled') {
+        $usedAsThumbnail = Post::where('thumbnail_media_id', $media->id)->where('status', 'scheduled')->exists();
+        if ($media->post?->status === 'scheduled' || $usedAsThumbnail) {
             return response()->json(['message' => 'This file is attached to a scheduled post. Edit or delete that post first.'], 422);
         }
 

@@ -25,11 +25,16 @@ class PublishPostJob implements ShouldQueue
     public function handle(): void
     {
         $platformStatuses = [];
-        $media = $this->post->media->map(function ($m) {
+        $thumbnail = $this->post->thumbnail;
+        $media = $this->post->media->map(function ($m) use ($thumbnail) {
             return [
                 'url' => Storage::url($m->path),
                 'path' => $m->path,
                 'type' => $m->type,
+                // custom cover, only meaningful for videos
+                'thumbnail' => $m->type === 'video' && $thumbnail
+                    ? ['url' => Storage::url($thumbnail->path), 'path' => $thumbnail->path]
+                    : null,
             ];
         })->toArray();
 
@@ -94,6 +99,10 @@ class PublishPostJob implements ShouldQueue
             foreach ($this->post->media as $m) {
                 Storage::disk('public')->delete($m->path);
                 $m->delete();
+            }
+            if ($thumbnail) {
+                Storage::disk('public')->delete($thumbnail->path);
+                $thumbnail->delete();
             }
         }
 
