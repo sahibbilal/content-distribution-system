@@ -153,10 +153,13 @@ class PlatformMediaRules
         return $issues;
     }
 
-    /** "video", "image or video", "an image or a video" (with $article = 'a ') */
+    /** "videos", "images or videos", or with $article = 'a ': "an image or a video" */
     private static function listKinds(array $kinds, string $article = ''): string
     {
-        $words = array_map(fn ($k) => ($article ? self::article(self::NOUNS[$k]) : '') . self::NOUNS[$k], $kinds);
+        $words = array_map(
+            fn ($k) => $article ? self::article(self::NOUNS[$k]) . self::NOUNS[$k] : self::NOUNS[$k] . 's',
+            $kinds
+        );
 
         return implode(' or ', $words);
     }

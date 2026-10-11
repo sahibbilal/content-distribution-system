@@ -24,20 +24,41 @@
                         <span class="mt-3 text-sm font-medium text-slate-700">
                             <span class="text-brand-700">Click to upload</span> or drag and drop
                         </span>
-                        <span class="mt-1 text-xs text-slate-500">Images and videos</span>
+                        <span class="mt-1 text-xs text-slate-500">Images, videos and audio</span>
                         <input type="file" class="sr-only" multiple :accept="getFileAcceptTypes()" @change="handleFileUpload" />
                     </label>
 
-                    <ul v-if="uploadedMedia.length > 0" class="mt-4 grid gap-3 sm:grid-cols-2">
-                        <li v-for="media in uploadedMedia" :key="media.id" class="flex items-center gap-3 rounded-lg bg-slate-50 p-2.5 ring-1 ring-slate-900/5">
-                            <img v-if="media.type === 'image'" :src="media.url" :alt="media.filename" class="h-12 w-12 shrink-0 rounded-md object-cover" />
-                            <span v-else class="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-slate-200 text-slate-500">
-                                <Film class="h-5 w-5" />
-                            </span>
-                            <span class="min-w-0 flex-1 truncate text-sm text-slate-700">{{ media.filename }}</span>
-                            <button type="button" @click="removeMedia(media.id)" class="btn btn-ghost p-2!" aria-label="Remove file">
-                                <X class="h-4 w-4" />
-                            </button>
+                    <p v-if="uploading" class="mt-4 text-xs font-medium text-slate-500">
+                        Uploading file {{ uploadPosition }} of {{ uploads.length }}. Files upload one at a time.
+                    </p>
+                    <ul v-if="uploads.length > 0" class="mt-3 space-y-3">
+                        <li v-for="item in uploads" :key="item.key" class="rounded-lg bg-slate-50 p-3 ring-1 ring-slate-900/5"
+                            :class="{ 'bg-red-50! ring-red-200!': item.status === 'error' }" :data-status="item.status">
+                            <div class="flex items-center gap-3">
+                                <img v-if="item.preview" :src="item.preview" :alt="item.name" class="h-12 w-12 shrink-0 rounded-md object-cover" />
+                                <span v-else class="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-slate-200 text-slate-500">
+                                    <Film v-if="item.kind === 'video'" class="h-5 w-5" />
+                                    <Music v-else-if="item.kind === 'audio'" class="h-5 w-5" />
+                                    <FileIcon v-else class="h-5 w-5" />
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-sm font-medium text-slate-800">{{ item.name }}</p>
+                                    <p class="text-xs" :class="item.status === 'error' ? 'text-red-700' : item.status === 'done' ? 'text-emerald-700' : 'text-slate-500'">
+                                        {{ formatSize(item.size) }} &middot; {{ statusText(item) }}
+                                    </p>
+                                </div>
+                                <button type="button" @click="removeUpload(item)" class="btn btn-ghost p-2!" aria-label="Remove file"
+                                    :disabled="item.status === 'uploading' || item.status === 'verifying'">
+                                    <X class="h-4 w-4" />
+                                </button>
+                            </div>
+                            <div v-if="item.status !== 'error'" class="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar"
+                                :aria-valuenow="item.progress" aria-valuemin="0" aria-valuemax="100">
+                                <div class="h-full rounded-full transition-all duration-200"
+                                    :class="[item.status === 'done' ? 'bg-emerald-500' : 'bg-brand-600', item.status === 'verifying' ? 'animate-pulse' : '']"
+                                    :style="{ width: item.progress + '%' }"></div>
+                            </div>
+                            <p v-else class="mt-2 whitespace-pre-line text-xs text-red-800">{{ item.error }}</p>
                         </li>
                     </ul>
                 </section>
@@ -54,17 +75,25 @@
                         <span>No platforms connected. <router-link to="/settings" class="font-semibold underline">Connect platforms</router-link></span>
                     </div>
                     <div v-else class="space-y-2">
-                        <label v-for="platform in platforms" :key="platform.id" class="block cursor-pointer">
-                            <input type="checkbox" :value="platform.id" v-model="form.platforms" class="peer sr-only" />
-                            <span class="flex items-center gap-3 rounded-lg bg-white px-3.5 py-3 ring-1 ring-inset ring-slate-300 transition peer-checked:bg-brand-50 peer-checked:ring-2 peer-checked:ring-brand-600 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600">
-                                <PlatformIcon :type="platform.platform_type" :size="22" />
-                                <span class="flex-1 text-sm font-medium text-slate-800">{{ platformLabel(platform.platform_type) }}</span>
-                                <span class="flex h-5 w-5 items-center justify-center rounded-full ring-1 ring-inset transition"
-                                    :class="form.platforms.includes(platform.id) ? 'bg-brand-600 text-white ring-brand-600' : 'text-transparent ring-slate-300'">
-                                    <Check class="h-3.5 w-3.5" />
+                        <div v-for="platform in platforms" :key="platform.id">
+                            <label class="block cursor-pointer">
+                                <input type="checkbox" :value="platform.id" v-model="form.platforms" class="peer sr-only" />
+                                <span class="flex items-center gap-3 rounded-lg bg-white px-3.5 py-3 ring-1 ring-inset ring-slate-300 transition peer-checked:bg-brand-50 peer-checked:ring-2 peer-checked:ring-brand-600 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600"
+                                    :class="{ 'peer-checked:bg-red-50! peer-checked:ring-red-500!': issues[platform.id] }">
+                                    <PlatformIcon :type="platform.platform_type" :size="22" />
+                                    <span class="flex-1 text-sm font-medium text-slate-800">{{ platformLabel(platform.platform_type) }}</span>
+                                    <span class="flex h-5 w-5 items-center justify-center rounded-full ring-1 ring-inset transition"
+                                        :class="form.platforms.includes(platform.id) ? 'bg-brand-600 text-white ring-brand-600' : 'text-transparent ring-slate-300'">
+                                        <Check class="h-3.5 w-3.5" />
+                                    </span>
                                 </span>
-                            </span>
-                        </label>
+                            </label>
+                            <ul v-if="issues[platform.id]" class="mt-1.5 space-y-1" data-issues>
+                                <li v-for="message in issues[platform.id]" :key="message" class="flex items-start gap-1.5 text-xs text-red-700">
+                                    <CircleAlert class="mt-0.5 h-3.5 w-3.5 shrink-0" /> {{ message }}
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </section>
 
@@ -79,11 +108,13 @@
                     <input v-if="form.schedule" v-model="form.scheduled_at" type="datetime-local" class="input mt-4" required />
                 </section>
 
-                <button type="submit" class="btn btn-primary w-full py-3" :disabled="loading || form.platforms.length === 0">
+                <button type="submit" class="btn btn-primary w-full py-3" :disabled="loading || uploading || hasIssues || form.platforms.length === 0">
                     <Send class="h-4 w-4" />
                     {{ loading ? 'Publishing...' : (form.schedule ? 'Schedule post' : 'Publish now') }}
                 </button>
-                <p v-if="form.platforms.length === 0 && !loadingPlatforms && platforms.length" class="-mt-3 text-center text-xs text-slate-500">Select at least one platform.</p>
+                <p v-if="uploading" class="-mt-3 text-center text-xs text-slate-500">Wait for the uploads to finish.</p>
+                <p v-else-if="hasIssues" class="-mt-3 text-center text-xs text-red-700">Fix the file problems above, or deselect that platform.</p>
+                <p v-else-if="form.platforms.length === 0 && !loadingPlatforms && platforms.length" class="-mt-3 text-center text-xs text-slate-500">Select at least one platform.</p>
 
                 <div v-if="error" class="alert alert-error">{{ error }}</div>
                 <ul v-if="failures.length" class="space-y-2">
@@ -105,17 +136,17 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, reactive, markRaw, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
-import { CalendarClock, Check, Film, Send, UploadCloud, X } from 'lucide-vue-next';
+import { CalendarClock, Check, CircleAlert, File as FileIcon, Film, Music, Send, UploadCloud, X } from 'lucide-vue-next';
 import PageHeader from '../components/PageHeader.vue';
 import PlatformIcon from '../components/PlatformIcon.vue';
 import { platformLabel } from '../platforms.js';
 
 export default {
     name: 'CreatePost',
-    components: { CalendarClock, Check, Film, Send, UploadCloud, X, PageHeader, PlatformIcon },
+    components: { CalendarClock, Check, CircleAlert, FileIcon, Film, Music, Send, UploadCloud, X, PageHeader, PlatformIcon },
     setup() {
         const router = useRouter();
         const form = ref({
@@ -126,7 +157,6 @@ export default {
             scheduled_at: '',
         });
         const platforms = ref([]);
-        const uploadedMedia = ref([]);
         const loading = ref(false);
         const loadingPlatforms = ref(true);
         const error = ref('');
@@ -150,56 +180,128 @@ export default {
         };
 
         const getFileAcceptTypes = () => {
-            // Images and videos only (the server verifies the real file content)
-            return 'image/jpeg,image/png,image/gif,image/webp,image/bmp,video/*';
+            // Images, video and audio (the server verifies the real file content)
+            return 'image/*,video/*,audio/*';
         };
 
-        const handleFileUpload = async (event) => {
-            const files = Array.from(event.target.files);
-            loading.value = true;
-            error.value = '';
+        // Each selected file becomes a queue item; items upload one at a time, in order.
+        // An item is "verifying" once its bytes are sent and the server is still checking the file.
+        const uploads = ref([]);
+        const issues = ref({});
+        const uploading = computed(() => uploads.value.some(u => ['queued', 'uploading', 'verifying'].includes(u.status)));
+        const uploadPosition = computed(() => {
+            const active = uploads.value.findIndex(u => ['uploading', 'verifying'].includes(u.status));
+            return (active === -1 ? uploads.value.findIndex(u => u.status === 'queued') : active) + 1;
+        });
+        const hasIssues = computed(() => Object.keys(issues.value).length > 0);
+        let queueRunning = false;
+        let nextKey = 1;
+
+        const formatSize = (bytes) => {
+            if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+            return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+        };
+
+        const statusText = (item) => ({
+            queued: 'Waiting',
+            uploading: `Uploading ${item.progress}%`,
+            verifying: 'Checking file...',
+            done: 'Uploaded',
+            error: 'Failed',
+        })[item.status];
+
+        const uploadOne = async (item) => {
+            item.status = 'uploading';
+            item.progress = 0;
+
+            const formData = new FormData();
+            formData.append('file', item.file);
 
             try {
-                for (const file of files) {
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    const response = await axios.post('/media/upload', formData, {
-                        // Don't set Content-Type - let axios/browser set it automatically with boundary
-                        headers: {
-                            // Remove Content-Type to let browser set it with boundary
-                        },
-                        timeout: 120000, // 2 minutes for large file uploads
-                        onUploadProgress: (progressEvent) => {
-                            if (progressEvent.total) {
-                                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                                console.log(`Upload progress: ${percentCompleted}%`);
-                            }
-                        },
-                    });
-                    
-                    uploadedMedia.value.push(response.data);
-                    form.value.media.push(response.data.id);
-                }
+                const response = await axios.post('/media/upload', formData, {
+                    timeout: 600000, // large videos on slow connections
+                    onUploadProgress: (progressEvent) => {
+                        if (!progressEvent.total) return;
+                        item.progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        if (progressEvent.loaded >= progressEvent.total) item.status = 'verifying';
+                    },
+                });
+                item.media = response.data;
+                item.progress = 100;
+                item.status = 'done';
+                form.value.media.push(response.data.id);
             } catch (err) {
                 const errorData = err.response?.data || {};
-                let errorMsg = errorData.error || errorData.message || err.message;
-                
+                let message = errorData.error || errorData.message || err.message;
                 if (errorData.allowed_types) {
-                    errorMsg += '\n\nAllowed file types: ' + errorData.allowed_types.join(', ');
+                    message += '\n\nAllowed file types: ' + errorData.allowed_types.join(', ');
                 }
-                
-                error.value = errorMsg;
-                console.error('File upload error:', errorData);
-            } finally {
-                loading.value = false;
+                item.status = 'error';
+                item.error = message;
             }
         };
 
-        const removeMedia = (mediaId) => {
-            uploadedMedia.value = uploadedMedia.value.filter(m => m.id !== mediaId);
-            form.value.media = form.value.media.filter(id => id !== mediaId);
+        // Start the next file only after the previous one is fully uploaded and verified
+        const runQueue = async () => {
+            if (queueRunning) return;
+            queueRunning = true;
+            let item;
+            while ((item = uploads.value.find(u => u.status === 'queued'))) {
+                await uploadOne(item);
+            }
+            queueRunning = false;
         };
+
+        const handleFileUpload = (event) => {
+            const files = Array.from(event.target.files);
+            if (event.target.value) event.target.value = ''; // lets the same file be picked again
+
+            for (const file of files) {
+                uploads.value.push(reactive({
+                    key: nextKey++,
+                    file: markRaw(file), // a File must not be wrapped in a reactive proxy
+                    name: file.name,
+                    size: file.size,
+                    kind: file.type.split('/')[0],
+                    preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+                    status: 'queued',
+                    progress: 0,
+                    error: '',
+                    media: null,
+                }));
+            }
+            runQueue();
+        };
+
+        const removeUpload = (item) => {
+            if (item.media) {
+                form.value.media = form.value.media.filter(id => id !== item.media.id);
+            }
+            if (item.preview) URL.revokeObjectURL(item.preview);
+            uploads.value = uploads.value.filter(u => u !== item);
+        };
+
+        // Ask the server whether each selected platform can publish the uploaded files
+        let checkId = 0;
+        const refreshIssues = async () => {
+            const id = ++checkId;
+            if (form.value.platforms.length === 0) {
+                issues.value = {};
+                return;
+            }
+            try {
+                const response = await axios.post('/media/check', {
+                    platforms: form.value.platforms,
+                    media: form.value.media,
+                });
+                if (id === checkId) issues.value = response.data.issues || {};
+            } catch (err) {
+                if (id === checkId) issues.value = {};
+            }
+        };
+        watch(() => [[...form.value.platforms], [...form.value.media]], refreshIssues);
+
+        onBeforeUnmount(() => uploads.value.forEach(u => u.preview && URL.revokeObjectURL(u.preview)));
 
         const handleSubmit = async () => {
             if (form.value.platforms.length === 0) {
@@ -273,7 +375,13 @@ export default {
             platformLabel,
             form,
             platforms,
-            uploadedMedia,
+            uploads,
+            issues,
+            uploading,
+            uploadPosition,
+            hasIssues,
+            formatSize,
+            statusText,
             loading,
             loadingPlatforms,
             error,
@@ -281,7 +389,7 @@ export default {
             success,
             getFileAcceptTypes,
             handleFileUpload,
-            removeMedia,
+            removeUpload,
             handleSubmit,
         };
     },
