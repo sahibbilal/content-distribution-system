@@ -47,8 +47,25 @@
                             <option value="linkedin">LinkedIn</option>
                             <option value="youtube">YouTube</option>
                             <option value="tiktok">TikTok</option>
+                            <option value="twitter">X (Twitter)</option>
+                            <option value="instagram">Instagram</option>
                         </select>
                     </div>
+
+                    <p v-if="connectForm.platform_type === 'twitter'" class="text-sm text-slate-600">
+                        X connects through login only. Use
+                        <router-link to="/platforms/twitter" class="font-semibold text-brand-700 hover:underline">Log in with X on the Platforms page</router-link>.
+                    </p>
+
+                    <p v-if="connectForm.platform_type === 'youtube'" class="text-sm text-slate-600">
+                        YouTube connects through Google login only. Use
+                        <router-link to="/platforms/youtube" class="font-semibold text-brand-700 hover:underline">Sign in with Google on the Platforms page</router-link>.
+                    </p>
+
+                    <p v-if="connectForm.platform_type === 'instagram'"class="text-sm text-slate-600">
+                        Instagram connects through login only. Use
+                        <router-link to="/platforms/instagram" class="font-semibold text-brand-700 hover:underline">Log in with Instagram on the Platforms page</router-link>.
+                    </p>
 
                     <div v-if="connectForm.platform_type === 'facebook'" class="space-y-5">
                         <div>
@@ -91,19 +108,15 @@
                         </div>
                     </div>
 
-                    <div v-if="connectForm.platform_type === 'youtube'">
-                        <label class="label">Credentials JSON</label>
-                        <textarea v-model="connectForm.credentials.credentials" rows="6" class="input font-mono text-xs" required placeholder="Paste your Google OAuth credentials JSON"></textarea>
-                    </div>
-
                     <div v-if="connectForm.platform_type === 'tiktok'" class="space-y-5">
                         <div>
                             <label class="label">Access token</label>
                             <input v-model="connectForm.credentials.access_token" type="text" class="input" required />
                         </div>
                         <div>
-                            <label class="label">Advertiser ID</label>
-                            <input v-model="connectForm.credentials.advertiser_id" type="text" class="input" required />
+                            <label class="label">Open ID</label>
+                            <input v-model="connectForm.credentials.open_id" type="text" class="input" required />
+                            <p class="hint">Returned by TikTok when you authorize. Connecting with TikTok login on the Platforms page fills this in for you.</p>
                         </div>
                     </div>
 
@@ -244,10 +257,8 @@ export default {
                     return !!(creds.page_id && creds.access_token);
                 case 'linkedin':
                     return !!creds.access_token; // person_urn is optional, will be auto-fetched
-                case 'youtube':
-                    return !!creds.credentials;
                 case 'tiktok':
-                    return !!(creds.access_token && creds.advertiser_id);
+                    return !!(creds.access_token && creds.open_id);
                 default:
                     return false;
             }

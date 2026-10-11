@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Services\Platforms\FacebookService;
+use App\Services\Platforms\InstagramService;
 use App\Services\Platforms\LinkedInService;
 use App\Services\Platforms\YouTubeService;
 use App\Services\Platforms\TikTokService;
+use App\Services\Platforms\TwitterService;
 
 class PlatformServiceFactory
 {
@@ -16,6 +18,8 @@ class PlatformServiceFactory
             'linkedin' => new LinkedInService(),
             'youtube' => new YouTubeService(),
             'tiktok' => new TikTokService(),
+            'twitter' => new TwitterService(),
+            'instagram' => new InstagramService(),
             default => throw new \InvalidArgumentException("Unsupported platform: {$platformType}"),
         };
     }
