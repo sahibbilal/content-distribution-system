@@ -17,11 +17,23 @@ class PlatformController extends Controller
                     'id' => $platform->id,
                     'platform_type' => $platform->platform_type,
                     'is_active' => $platform->is_active,
+                    'credentials_valid' => $this->hasValidCredentials($platform),
                     'created_at' => $platform->created_at,
                 ];
             });
 
         return response()->json($platforms);
+    }
+
+    // A saved row is only "connected" if its credentials are complete enough to use
+    private function hasValidCredentials(Platform $platform): bool
+    {
+        try {
+            return PlatformServiceFactory::create($platform->platform_type)
+                ->validateCredentials($platform->credentials ?? []);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     public function connect(Request $request, $platformType)

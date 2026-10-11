@@ -270,7 +270,7 @@ export default {
                 const response = await axios.get('/platforms');
                 const platform = response.data.find(p => p.platform_type === platformType);
                 if (platform) {
-                    isConnected.value = platform.is_active;
+                    isConnected.value = platform.is_active && platform.credentials_valid;
                     platformId.value = platform.id;
                 }
             } catch (error) {

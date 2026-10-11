@@ -89,7 +89,7 @@ export default {
         };
 
         const isConnected = (platformType) => {
-            return connectedPlatforms.value.some(p => p.platform_type === platformType && p.is_active);
+            return connectedPlatforms.value.some(p => p.platform_type === platformType && p.is_active && p.credentials_valid);
         };
 
         const goToPlatform = (platformType) => {
