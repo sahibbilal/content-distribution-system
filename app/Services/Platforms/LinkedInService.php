@@ -5,6 +5,7 @@ namespace App\Services\Platforms;
 use App\Services\PlatformServiceInterface;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class LinkedInService implements PlatformServiceInterface
 {
@@ -75,20 +76,17 @@ class LinkedInService implements PlatformServiceInterface
             ],
         ];
 
-        // Handle media if provided
-        // Note: LinkedIn requires uploading images first via their Upload API
-        // For now, we'll just include the media URL in the text if it's a link
-        if (!empty($media) && isset($media[0])) {
-            $mediaUrl = $media[0]['url'] ?? null;
-            if ($mediaUrl) {
-                // For LinkedIn, we can mention the link in the content
-                // Full media upload would require using LinkedIn's Upload API first
-                // For now, append the URL to the content if it's not already there
-                if (strpos($content, $mediaUrl) === false) {
-                    $content .= "\n\n" . $mediaUrl;
-                }
-                $postData['specificContent']['com.linkedin.ugc.ShareContent']['shareCommentary']['text'] = $content;
-            }
+        // LinkedIn needs the image uploaded first; the post then references the uploaded asset
+        $imagePath = $media[0]['path'] ?? null;
+        if ($imagePath) {
+            $assetUrn = $this->uploadImage($accessToken, $personUrn, $imagePath);
+            $share = &$postData['specificContent']['com.linkedin.ugc.ShareContent'];
+            $share['shareMediaCategory'] = 'IMAGE';
+            $share['media'] = [[
+                'status' => 'READY',
+                'media' => $assetUrn,
+            ]];
+            unset($share);
         }
 
         $response = Http::withHeaders([
@@ -173,6 +171,51 @@ class LinkedInService implements PlatformServiceInterface
         }
 
         throw new \Exception('LinkedIn API error: ' . $errorMessage . ' (Status: ' . $status . ($errorCode ? ', Code: ' . $errorCode : '') . ')');
+    }
+
+    /**
+     * Upload an image from the public disk to LinkedIn and return its asset URN
+     */
+    private function uploadImage(string $accessToken, string $personUrn, string $path): string
+    {
+        $disk = Storage::disk('public'); // MediaController stores uploads on the public disk
+        if (!$disk->exists($path)) {
+            throw new \Exception('LinkedIn image upload failed: file not found on server (' . $path . ').');
+        }
+
+        $register = Http::withHeaders([
+            'Authorization' => "Bearer {$accessToken}",
+            'X-Restli-Protocol-Version' => '2.0.0',
+        ])->timeout(30)->post('https://api.linkedin.com/v2/assets?action=registerUpload', [
+            'registerUploadRequest' => [
+                'recipes' => ['urn:li:digitalmediaRecipe:feedshare-image'],
+                'owner' => $personUrn,
+                'serviceRelationships' => [[
+                    'relationshipType' => 'OWNER',
+                    'identifier' => 'urn:li:userGeneratedContent',
+                ]],
+            ],
+        ]);
+
+        $uploadUrl = $register->json('value.uploadMechanism.com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest.uploadUrl');
+        $assetUrn = $register->json('value.asset');
+
+        if (!$register->successful() || !$uploadUrl || !$assetUrn) {
+            Log::error('LinkedIn registerUpload failed', ['status' => $register->status(), 'body' => $register->body()]);
+            throw new \Exception('LinkedIn image upload failed (register step): ' . $register->body());
+        }
+
+        $upload = Http::withHeaders(['Authorization' => "Bearer {$accessToken}"])
+            ->timeout(60)
+            ->withBody($disk->get($path), $disk->mimeType($path) ?: 'application/octet-stream')
+            ->put($uploadUrl);
+
+        if (!$upload->successful()) {
+            Log::error('LinkedIn image upload failed', ['status' => $upload->status(), 'body' => $upload->body()]);
+            throw new \Exception('LinkedIn image upload failed (status ' . $upload->status() . ').');
+        }
+
+        return $assetUrn;
     }
 
     /**
