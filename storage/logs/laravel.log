@@ -2216,3 +2216,6 @@
 [2026-10-11 12:37:19] local.INFO: LinkedIn token exchange attempt {"redirect_uri":"https://content-distribution-system.ddev.site/api/platforms/linkedin/oauth/callback","client_id_length":14,"client_secret_length":33,"client_id_starts_with":"77dt..."} 
 [2026-10-11 12:37:22] local.INFO: Extracted person URN from ID token {"urn":"oLIqSz36Ad"} 
 [2026-10-11 12:37:22] local.INFO: LinkedIn OAuth connection successful {"user_id":3,"platform_id":5} 
+[2026-10-11 14:14:34] local.ERROR: LinkedIn registerUpload failed {"status":401,"body":"{\"message\":\"Invalid access token\"}"} 
+[2026-10-11 14:14:34] local.ERROR: LinkedIn image upload failed {"status":500,"body":"boom"} 
+[2026-10-11 14:14:34] local.ERROR: LinkedIn registerUpload failed {"status":200,"body":"{\"value\":{\"asset\":\"urn:x\"}}"} 
