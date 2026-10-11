@@ -31,13 +31,11 @@ class FacebookOAuthController extends Controller
         // Cache, not session: this token-auth API call has no session on live.
         Cache::put('facebook_oauth_state:' . $state, $request->user()->id, now()->addMinutes(10));
 
-        // Required permissions for Facebook Pages and Instagram
+        // Required permissions for Facebook Pages (Instagram has its own app and login)
         $scopes = [
             'pages_manage_posts',      // Post to Facebook Pages
             'pages_show_list',         // List user's pages
             'pages_read_engagement',   // Read page engagement
-            'instagram_basic',         // Access Instagram Basic Display API
-            'instagram_content_publish', // Publish to Instagram
             'business_management',    // Manage business assets
         ];
 

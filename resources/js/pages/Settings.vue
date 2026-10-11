@@ -67,20 +67,10 @@
                         <router-link to="/platforms/instagram" class="font-semibold text-brand-700 hover:underline">Log in with Instagram on the Platforms page</router-link>.
                     </p>
 
-                    <div v-if="connectForm.platform_type === 'facebook'" class="space-y-5">
-                        <div>
-                            <label class="label">Page ID</label>
-                            <input v-model="connectForm.credentials.page_id" type="text" class="input" required />
-                        </div>
-                        <div>
-                            <label class="label">Access token</label>
-                            <input v-model="connectForm.credentials.access_token" type="text" class="input" required />
-                        </div>
-                        <div>
-                            <label class="label">App secret (optional)</label>
-                            <input v-model="connectForm.credentials.app_secret" type="text" class="input" />
-                        </div>
-                    </div>
+                    <p v-if="connectForm.platform_type === 'facebook'" class="text-sm text-slate-600">
+                        Facebook connects through login only. Use
+                        <router-link to="/platforms/facebook" class="font-semibold text-brand-700 hover:underline">Log in with Facebook on the Platforms page</router-link>.
+                    </p>
 
                     <div v-if="connectForm.platform_type === 'linkedin'" class="space-y-5">
                         <div>
@@ -253,8 +243,6 @@ export default {
             const creds = connectForm.value.credentials;
             
             switch (connectForm.value.platform_type) {
-                case 'facebook':
-                    return !!(creds.page_id && creds.access_token);
                 case 'linkedin':
                     return !!creds.access_token; // person_urn is optional, will be auto-fetched
                 case 'tiktok':

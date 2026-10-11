@@ -44,6 +44,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('posts', PostController::class);
+    Route::get('/schedules/calendar', [ScheduleController::class, 'calendar']);
     Route::apiResource('schedules', ScheduleController::class)->only(['index', 'destroy']);
     
     Route::prefix('platforms')->group(function () {
@@ -85,6 +86,8 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
     
+    Route::get('/media', [MediaController::class, 'index']);
+    Route::delete('/media/{id}', [MediaController::class, 'destroy']);
     Route::post('/media/upload', [MediaController::class, 'upload']);
     Route::post('/media/check', [MediaController::class, 'check']);
 });

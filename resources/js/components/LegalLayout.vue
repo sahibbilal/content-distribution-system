@@ -17,6 +17,8 @@
             <router-link to="/terms" class="hover:text-slate-900">Terms of Service</router-link>
             <span class="mx-1">&middot;</span>
             <router-link to="/privacy" class="hover:text-slate-900">Privacy Policy</router-link>
+            <span class="mx-1">&middot;</span>
+            <router-link to="/data-deletion" class="hover:text-slate-900">Data Deletion</router-link>
         </footer>
     </div>
 </template>
