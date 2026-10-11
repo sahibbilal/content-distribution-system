@@ -20,7 +20,8 @@ class TikTokService implements PlatformServiceInterface
         $openId = $credentials['open_id'] ?? null;
 
         if (!$accessToken || !$openId) {
-            throw new \Exception('TikTok credentials are incomplete. Please connect your TikTok account via OAuth.');
+            $missing = implode(' and ', array_filter([!$accessToken ? 'access_token' : null, !$openId ? 'open_id' : null]));
+            throw new \Exception("TikTok credentials are incomplete (missing {$missing}). Please reconnect your TikTok account via OAuth.");
         }
 
         if (($media[0]['type'] ?? null) === 'image') {
