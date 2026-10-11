@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Platform;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -28,8 +29,8 @@ class TikTokOAuthController extends Controller
 
         // Generate state token for CSRF protection
         $state = bin2hex(random_bytes(16));
-        session(['tiktok_oauth_state' => $state]);
-        session(['tiktok_oauth_user_id' => $request->user()->id]);
+        // Cache, not session: this token-auth API call has no session on live.
+        Cache::put('tiktok_oauth_state:' . $state, $request->user()->id, now()->addMinutes(10));
 
         // Sandbox apps only have video.upload (drafts); production uses Direct Post
         $scopes = [
@@ -68,13 +69,11 @@ class TikTokOAuthController extends Controller
         }
 
         // Verify state token
-        $storedState = session('tiktok_oauth_state');
-        $userId = session('tiktok_oauth_user_id');
+        $userId = $state ? Cache::pull('tiktok_oauth_state:' . $state) : null;
 
-        if (!$state || $state !== $storedState) {
+        if (!$userId) {
             Log::error('TikTok OAuth state mismatch', [
                 'received' => $state,
-                'stored' => $storedState,
             ]);
             return redirect(env('FRONTEND_URL', config('app.url')) . '/platforms/tiktok?tiktok_error=' . urlencode('Invalid state token. Please try again.'));
         }
@@ -176,8 +175,6 @@ class TikTokOAuthController extends Controller
                 ]
             );
 
-            // Clear session
-            session()->forget(['tiktok_oauth_state', 'tiktok_oauth_user_id']);
 
             Log::info('TikTok OAuth connection successful', [
                 'user_id' => $userId,

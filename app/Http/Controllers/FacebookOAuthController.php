@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Platform;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -27,8 +28,8 @@ class FacebookOAuthController extends Controller
 
         // Generate state token for CSRF protection
         $state = bin2hex(random_bytes(16));
-        session(['facebook_oauth_state' => $state]);
-        session(['facebook_oauth_user_id' => $request->user()->id]);
+        // Cache, not session: this token-auth API call has no session on live.
+        Cache::put('facebook_oauth_state:' . $state, $request->user()->id, now()->addMinutes(10));
 
         // Required permissions for Facebook Pages and Instagram
         $scopes = [
@@ -77,13 +78,11 @@ class FacebookOAuthController extends Controller
         }
 
         // Verify state token
-        $storedState = session('facebook_oauth_state');
-        $userId = session('facebook_oauth_user_id');
+        $userId = $state ? Cache::pull('facebook_oauth_state:' . $state) : null;
 
-        if (!$state || $state !== $storedState) {
+        if (!$userId) {
             Log::error('Facebook OAuth state mismatch', [
                 'received' => $state,
-                'stored' => $storedState,
             ]);
             return redirect(env('FRONTEND_URL', config('app.url')) . '/platforms/facebook?facebook_error=' . urlencode('Invalid state token. Please try again.'));
         }
@@ -250,8 +249,6 @@ class FacebookOAuthController extends Controller
                 ]
             );
 
-            // Clear session
-            session()->forget(['facebook_oauth_state', 'facebook_oauth_user_id']);
 
             Log::info('Facebook OAuth connection successful', [
                 'user_id' => $userId,

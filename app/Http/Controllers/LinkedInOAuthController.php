@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Platform;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -29,8 +30,9 @@ class LinkedInOAuthController extends Controller
 
         // Generate state token for CSRF protection
         $state = bin2hex(random_bytes(16));
-        session(['linkedin_oauth_state' => $state]);
-        session(['linkedin_oauth_user_id' => $request->user()->id]);
+        // Stored in cache (not session): the initiate call is a token-auth API request
+        // that has no session on live, so the callback could never find the state.
+        Cache::put('linkedin_oauth_state:' . $state, $request->user()->id, now()->addMinutes(10));
 
         $authUrl = 'https://www.linkedin.com/oauth/v2/authorization?' . http_build_query([
             'response_type' => 'code',
@@ -63,13 +65,11 @@ class LinkedInOAuthController extends Controller
         }
 
         // Verify state token
-        $storedState = session('linkedin_oauth_state');
-        $userId = session('linkedin_oauth_user_id');
+        $userId = $state ? Cache::pull('linkedin_oauth_state:' . $state) : null;
 
-        if (!$state || $state !== $storedState) {
+        if (!$userId) {
             Log::error('LinkedIn OAuth state mismatch', [
                 'received' => $state,
-                'stored' => $storedState,
             ]);
             return redirect(env('FRONTEND_URL', config('app.url')) . '/platforms/linkedin?linkedin_error=' . urlencode('Invalid state token. Please try again.'));
         }
@@ -270,7 +270,6 @@ class LinkedInOAuthController extends Controller
             }
 
             // Clear session
-            session()->forget(['linkedin_oauth_state', 'linkedin_oauth_user_id']);
 
             Log::info('LinkedIn OAuth connection successful', [
                 'user_id' => $userId,
