@@ -19,7 +19,7 @@ class WebsiteService implements PlatformServiceInterface
      * Upload each media file, then create the post as published.
      * The first line of the text becomes the title; $contentHtml (the editor's cleaned HTML) is the body when present.
      */
-    public function publish(string $content, array $credentials, array $media = [], ?string $contentHtml = null): array
+    public function publish(string $content, array $credentials, array $media = [], ?string $contentHtml = null, array $tags = []): array
     {
         if (!$this->validateCredentials($credentials)) {
             throw new \Exception('Website credentials are incomplete. Please enter the API URL and bearer token.');
@@ -49,6 +49,7 @@ class WebsiteService implements PlatformServiceInterface
                     'content' => $body,
                     'excerpt' => mb_substr(trim(preg_replace('/\s+/', ' ', $content)), 0, 200),
                     'status' => 'published',
+                    'tags' => array_values($tags),
                     'cover_image' => $cover,
                     'media' => $uploaded,
                 ]);

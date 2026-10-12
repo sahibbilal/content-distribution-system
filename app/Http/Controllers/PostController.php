@@ -54,6 +54,8 @@ class PostController extends Controller
         $request->validate([
             'content' => 'required_without:content_html|nullable|string',
             'content_html' => 'nullable|string|max:100000',
+            'tags' => 'nullable|array|max:20',
+            'tags.*' => 'string|max:50',
             'platforms' => 'required|array|min:1',
             'platforms.*' => 'exists:platforms,id',
             'scheduled_at' => 'nullable|date|after:now',
@@ -86,6 +88,7 @@ class PostController extends Controller
             'user_id' => $request->user()->id,
             'content' => $content,
             'content_html' => $contentHtml,
+            'tags' => $this->cleanTags($request->tags),
             'platforms' => $request->platforms,
             'status' => $request->scheduled_at ? 'scheduled' : 'draft',
             'scheduled_at' => $request->scheduled_at,
@@ -185,6 +188,20 @@ class PostController extends Controller
         return [$request->content, null];
     }
 
+    /** Trimmed, non-empty, unique (case-insensitive) tags in the order given. */
+    private function cleanTags(?array $tags): array
+    {
+        $clean = [];
+        foreach ($tags ?? [] as $tag) {
+            $tag = trim($tag);
+            if ($tag !== '' && !in_array(mb_strtolower($tag), array_map('mb_strtolower', $clean), true)) {
+                $clean[] = $tag;
+            }
+        }
+
+        return $clean;
+    }
+
     /** Why the chosen thumbnail can't be used (null when it's fine). Limits match the strictest platform (YouTube: 2MB). */
     private function thumbnailError(int $userId, int $thumbnailId, array $mediaIds): ?string
     {
@@ -226,12 +243,15 @@ class PostController extends Controller
         $data = $request->validate([
             'content' => 'required_without:content_html|nullable|string',
             'content_html' => 'nullable|string|max:100000',
+            'tags' => 'nullable|array|max:20',
+            'tags.*' => 'string|max:50',
             'platforms' => 'required|array|min:1',
             'platforms.*' => 'exists:platforms,id',
             'scheduled_at' => 'required|date|after:now',
         ]);
 
         [$data['content'], $data['content_html']] = $this->postText($request);
+        $data['tags'] = $this->cleanTags($data['tags'] ?? null);
 
         $problems = PlatformMediaRules::forPost($request->user()->id, $data['platforms'], $post->media->pluck('id')->all());
         if ($problems) {

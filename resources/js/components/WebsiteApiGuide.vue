@@ -27,6 +27,7 @@
 
         <ul class="list-disc space-y-1 pl-5">
             <li>The first line of your post becomes <code>title</code>; <code>content</code> is the rest as HTML (only p, br, strong, em, u, s, ul, ol, li, a, blockquote, h2, h3).</li>
+            <li><code>tags</code> is an array of strings (empty if the post has none), taken from the Tags field when creating a post.</li>
             <li><code>cover_image</code> is the first uploaded image (or <code>null</code>). <code>media</code> lists every uploaded file.</li>
             <li>Uploaded file URLs must be publicly reachable. The <code>id</code> in the post response is required; <code>url</code> is the link shown for the live post.</li>
             <li>Posts are published immediately (<code>status: "published"</code>).</li>
@@ -58,7 +59,7 @@ const endpoints = [
         path: '/posts',
         title: 'Create a published post',
         note: 'Called once per post with the content and the URLs returned by /media.',
-        request: 'application/json\n{\n  "title": "First line of the post (max 150 chars)",\n  "content": "<p>HTML body</p>",\n  "excerpt": "Plain-text summary, up to 200 chars",\n  "status": "published",\n  "cover_image": "https://yoursite.com/uploads/abc.jpg",   // or null\n  "media": [ { "type": "image", "url": "https://yoursite.com/uploads/abc.jpg" } ]\n}',
+        request: 'application/json\n{\n  "title": "First line of the post (max 150 chars)",\n  "content": "<p>HTML body</p>",\n  "excerpt": "Plain-text summary, up to 200 chars",\n  "status": "published",\n  "tags": ["AI", "PHP"],\n  "cover_image": "https://yoursite.com/uploads/abc.jpg",   // or null\n  "media": [ { "type": "image", "url": "https://yoursite.com/uploads/abc.jpg" } ]\n}',
         response: '201 Created\n{ "id": 42, "url": "https://yoursite.com/blog/my-post-slug" }',
     },
 ];

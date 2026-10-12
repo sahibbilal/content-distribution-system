@@ -29,6 +29,11 @@
                 </section>
 
                 <section class="card p-5">
+                    <span class="label">Tags <span class="font-normal text-slate-400">(optional)</span></span>
+                    <TagsInput v-model="form.tags" />
+                </section>
+
+                <section class="card p-5">
                     <h2 class="label">Platforms</h2>
                     <div class="grid gap-2 sm:grid-cols-2">
                         <label v-for="platform in platforms" :key="platform.id" class="block cursor-pointer">
@@ -114,6 +119,7 @@ import axios from 'axios';
 import { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2 } from 'lucide-vue-next';
 import PlatformIcon from '../components/PlatformIcon.vue';
 import RichTextEditor from '../components/RichTextEditor.vue';
+import TagsInput from '../components/TagsInput.vue';
 import { confirmDialog, toast } from '../feedback.js';
 import { platformLabel } from '../platforms.js';
 
@@ -125,13 +131,13 @@ const toLocalInput = (iso) => {
 
 export default {
     name: 'PostDetail',
-    components: { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2, PlatformIcon, RichTextEditor },
+    components: { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2, PlatformIcon, RichTextEditor, TagsInput },
     setup() {
         const route = useRoute();
         const router = useRouter();
         const post = ref(null);
         const platforms = ref([]);
-        const form = ref({ content: '', content_html: '', platforms: [], scheduled_at: '' });
+        const form = ref({ content: '', content_html: '', tags: [], platforms: [], scheduled_at: '' });
         const loading = ref(true);
         const notFound = ref(false);
         const saving = ref(false);
@@ -158,6 +164,7 @@ export default {
                     // posts saved before the editor existed only have plain text
                     content_html: post.value.content_html
                         || post.value.content.split(/\n{2,}/).map(p => `<p>${escape(p).replace(/\n/g, '<br>')}</p>`).join(''),
+                    tags: [...(post.value.tags || [])],
                     platforms: [...(post.value.platforms || [])],
                     scheduled_at: post.value.scheduled_at ? toLocalInput(post.value.scheduled_at) : '',
                 };
@@ -175,6 +182,7 @@ export default {
                 await axios.put(`/posts/${post.value.id}`, {
                     content: form.value.content,
                     content_html: form.value.content_html,
+                    tags: form.value.tags,
                     platforms: form.value.platforms,
                     scheduled_at: new Date(form.value.scheduled_at).toISOString(),
                 });
