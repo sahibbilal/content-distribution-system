@@ -85,6 +85,11 @@ export default {
                 name: 'Instagram',
                 description: 'Photos and Reels for Business and Creator accounts',
             },
+            {
+                type: 'website',
+                name: 'Website',
+                description: 'Blog posts on your own site through its API',
+            },
         ];
 
         const loadPlatforms = async () => {

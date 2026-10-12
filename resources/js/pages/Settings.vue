@@ -49,7 +49,17 @@
                             <option value="tiktok">TikTok</option>
                             <option value="twitter">X (Twitter)</option>
                             <option value="instagram">Instagram</option>
+                            <option value="website">Website</option>
                         </select>
+                    </div>
+
+                    <div v-if="connectForm.platform_type === 'website'" class="space-y-4">
+                        <p class="text-sm text-slate-600">
+                            Enter your site's API URL and bearer token on the
+                            <router-link to="/platforms/website" class="font-semibold text-brand-700 hover:underline">Platforms page</router-link>.
+                            Your site needs to provide this API:
+                        </p>
+                        <WebsiteApiGuide />
                     </div>
 
                     <p v-if="connectForm.platform_type === 'twitter'" class="text-sm text-slate-600">
@@ -136,12 +146,13 @@ import axios from 'axios';
 import { Plug } from 'lucide-vue-next';
 import PageHeader from '../components/PageHeader.vue';
 import PlatformIcon from '../components/PlatformIcon.vue';
+import WebsiteApiGuide from '../components/WebsiteApiGuide.vue';
 import { confirmDialog } from '../feedback.js';
 import { platformLabel } from '../platforms.js';
 
 export default {
     name: 'Settings',
-    components: { Plug, PageHeader, PlatformIcon },
+    components: { Plug, PageHeader, PlatformIcon, WebsiteApiGuide },
     setup() {
         const platforms = ref([]);
         const loading = ref(true);

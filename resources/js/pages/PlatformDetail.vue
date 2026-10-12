@@ -170,6 +170,35 @@
                 </button>
             </section>
 
+            <!-- Website -->
+            <section v-else-if="platformType === 'website'" class="card space-y-5 p-5">
+                <div>
+                    <h2 class="card-title">Connect your website</h2>
+                    <p class="mt-1 text-sm text-slate-500">Posts are published immediately through your site's API. The first line of your text becomes the post title.</p>
+                </div>
+                <WebsiteApiGuide />
+                <form @submit.prevent="handleManualConnect" class="space-y-5">
+                    <div>
+                        <label class="label">API URL</label>
+                        <input v-model="credentials.api_url" type="url" class="input" placeholder="https://bilalmahmood.dev/api" />
+                        <p class="hint">The base URL of your API, without a trailing /posts.</p>
+                    </div>
+                    <div>
+                        <label class="label">Bearer token</label>
+                        <input v-model="credentials.api_token" type="password" autocomplete="off" class="input" placeholder="Enter your API token" />
+                        <p class="hint">Sent as <code>Authorization: Bearer ...</code>. Saving again replaces the stored token.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" @click="testConnection" class="btn btn-secondary" :disabled="testingConnection || !hasCredentials">
+                            {{ testingConnection ? 'Testing...' : 'Test connection' }}
+                        </button>
+                        <button type="submit" class="btn btn-primary" :disabled="!hasCredentials || connecting">
+                            {{ connecting ? 'Connecting...' : 'Save credentials' }}
+                        </button>
+                    </div>
+                </form>
+            </section>
+
             <!-- Test result -->
             <div v-if="testResult" ref="testResultEl" class="alert flex-col gap-0.5" :class="testResult.success ? 'alert-success' : 'alert-error'">
                 <h4 class="flex items-center gap-2 font-semibold">
@@ -204,11 +233,12 @@ import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { ArrowLeft, CircleCheck, CircleX } from 'lucide-vue-next';
 import PlatformIcon from '../components/PlatformIcon.vue';
+import WebsiteApiGuide from '../components/WebsiteApiGuide.vue';
 import { confirmDialog } from '../feedback.js';
 
 export default {
     name: 'PlatformDetail',
-    components: { ArrowLeft, CircleCheck, CircleX, PlatformIcon },
+    components: { ArrowLeft, CircleCheck, CircleX, PlatformIcon, WebsiteApiGuide },
     setup() {
         const router = useRouter();
         const route = useRoute();
@@ -238,6 +268,7 @@ export default {
                 tiktok: { name: 'TikTok', description: 'Short-form video platform' },
                 twitter: { name: 'X (Twitter)', description: 'Short text posts (tweets)' },
                 instagram: { name: 'Instagram', description: 'Photos and Reels' },
+                website: { name: 'Website', description: 'Blog posts on your own site through its API' },
             };
             return platforms[platformType] || { name: platformType, description: '' };
         });
@@ -251,6 +282,8 @@ export default {
                     return !!creds.access_token;
                 case 'tiktok':
                     return !!(creds.access_token && creds.open_id);
+                case 'website':
+                    return !!(creds.api_url && creds.api_token);
                 default:
                     return false;
             }
