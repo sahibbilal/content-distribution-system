@@ -54,6 +54,12 @@ class PlatformMediaRules
             'max_total' => 4,
             'kinds' => ['image' => ['extensions' => ['jpg', 'png', 'webp', 'gif'], 'max_bytes' => 5 * 1024 * 1024]],
         ],
+        'website' => [
+            'label' => 'Website',
+            'media' => 'optional',
+            'max_total' => 10,
+            'kinds' => ['image' => [], 'video' => [], 'audio' => []],
+        ],
     ];
 
     private const NOUNS = ['image' => 'image', 'video' => 'video', 'audio' => 'audio file'];

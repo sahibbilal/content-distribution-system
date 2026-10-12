@@ -46,6 +46,11 @@ const ICONS = {
         "h": 24,
         "body": "<defs><linearGradient id=\"ig-g\" x1=\"0\" y1=\"1\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#feda75\"/><stop offset=\".35\" stop-color=\"#fa7e1e\"/><stop offset=\".6\" stop-color=\"#d62976\"/><stop offset=\"1\" stop-color=\"#4f5bd5\"/></linearGradient></defs><rect width=\"24\" height=\"24\" rx=\"6\" fill=\"url(#ig-g)\"/><rect x=\"5\" y=\"5\" width=\"14\" height=\"14\" rx=\"4\" fill=\"none\" stroke=\"#fff\" stroke-width=\"1.8\"/><circle cx=\"12\" cy=\"12\" r=\"3.3\" fill=\"none\" stroke=\"#fff\" stroke-width=\"1.8\"/><circle cx=\"16.5\" cy=\"7.5\" r=\"1\" fill=\"#fff\"/>"
     },
+    "website": {
+        "w": 24,
+        "h": 24,
+        "body": "<g fill=\"none\" stroke=\"#0f766e\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18\"/><path d=\"M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18\"/></g>"
+    },
     "tiktok": {
         "w": 256,
         "h": 290,

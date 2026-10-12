@@ -54,7 +54,8 @@ class PublishPostJob implements ShouldQueue
                 $result = $service->publish(
                     $this->post->content,
                     $platform->credentials,
-                    $media
+                    $media,
+                    $this->post->content_html // only WebsiteService uses this; other services ignore extra args
                 );
 
                 // Always store the URL if available, even if success is false
