@@ -478,6 +478,8 @@ export default {
             try {
                 await axios.post(`/platforms/${platformType}/connect`, {
                     credentials: credentials.value,
+                    // The website API is the user's own, so check the URL and token before saving anything
+                    test_first: platformType === 'website',
                 });
                 success.value = 'Platform connected successfully!';
                 credentials.value = {};

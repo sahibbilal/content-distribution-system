@@ -19,7 +19,7 @@ class WebsiteService implements PlatformServiceInterface
      * Upload each media file, then create the post as published.
      * The first line of the text becomes the title; $contentHtml (the editor's cleaned HTML) is the body when present.
      */
-    public function publish(string $content, array $credentials, array $media = [], ?string $contentHtml = null): array
+    public function publish(string $content, array $credentials, array $media = [], ?string $contentHtml = null, array $tags = []): array
     {
         if (!$this->validateCredentials($credentials)) {
             throw new \Exception('Website credentials are incomplete. Please enter the API URL and bearer token.');
@@ -37,11 +37,11 @@ class WebsiteService implements PlatformServiceInterface
 
             $uploaded = array_map(fn ($item) => [
                 'type' => $item['type'],
-                'url' => $this->uploadMedia($base, $credentials['api_token'], $item),
+                'url' => $this->uploadMedia($base, $this->token($credentials), $item),
             ], $media);
             $cover = collect($uploaded)->firstWhere('type', 'image')['url'] ?? null;
 
-            $response = Http::withToken($credentials['api_token'])
+            $response = Http::withToken($this->token($credentials))
                 ->acceptJson()
                 ->timeout(30)
                 ->post("{$base}/posts", [
@@ -49,6 +49,7 @@ class WebsiteService implements PlatformServiceInterface
                     'content' => $body,
                     'excerpt' => mb_substr(trim(preg_replace('/\s+/', ' ', $content)), 0, 200),
                     'status' => 'published',
+                    'tags' => array_values($tags),
                     'cover_image' => $cover,
                     'media' => $uploaded,
                 ]);
@@ -132,6 +133,12 @@ class WebsiteService implements PlatformServiceInterface
         return rtrim(trim($credentials['api_url']), '/');
     }
 
+    // A pasted token often carries a trailing space or newline, which makes the server reject it
+    private function token(array $credentials): string
+    {
+        return trim($credentials['api_token']);
+    }
+
     public function validateCredentials(array $credentials): bool
     {
         $url = trim($credentials['api_url'] ?? '');
@@ -148,7 +155,7 @@ class WebsiteService implements PlatformServiceInterface
         }
 
         try {
-            $response = Http::withToken($credentials['api_token'])
+            $response = Http::withToken($this->token($credentials))
                 ->acceptJson()
                 ->timeout(10)
                 ->get($this->baseUrl($credentials) . '/me');

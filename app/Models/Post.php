@@ -13,6 +13,7 @@ class Post extends Model
         'user_id',
         'content',
         'content_html',
+        'tags',
         'platforms',
         'status',
         'scheduled_at',
@@ -22,6 +23,7 @@ class Post extends Model
     ];
 
     protected $casts = [
+        'tags' => 'array',
         'platforms' => 'array',
         'platform_statuses' => 'array',
         'scheduled_at' => 'datetime',

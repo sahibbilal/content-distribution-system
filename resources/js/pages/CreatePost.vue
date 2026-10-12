@@ -15,6 +15,11 @@
                 </section>
 
                 <section class="card p-5">
+                    <span class="label">Tags <span class="font-normal text-slate-400">(optional)</span></span>
+                    <TagsInput v-model="form.tags" />
+                </section>
+
+                <section class="card p-5">
                     <label class="label">Media <span class="font-normal text-slate-400">(optional)</span></label>
                     <label
                         class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition hover:border-brand-400 hover:bg-brand-50/40"
@@ -212,17 +217,19 @@ import { CalendarClock, Check, CircleAlert, File as FileIcon, Film, Image as Ima
 import PageHeader from '../components/PageHeader.vue';
 import PlatformIcon from '../components/PlatformIcon.vue';
 import RichTextEditor from '../components/RichTextEditor.vue';
+import TagsInput from '../components/TagsInput.vue';
 import { platformLabel } from '../platforms.js';
 
 export default {
     name: 'CreatePost',
-    components: { CalendarClock, Check, CircleAlert, FileIcon, Film, ImageIcon, Images, Music, Send, UploadCloud, X, PageHeader, PlatformIcon, RichTextEditor },
+    components: { CalendarClock, Check, CircleAlert, FileIcon, Film, ImageIcon, Images, Music, Send, UploadCloud, X, PageHeader, PlatformIcon, RichTextEditor, TagsInput },
     setup() {
         const router = useRouter();
         const route = useRoute();
         const form = ref({
             content: '', // plain text, filled in by the editor
             content_html: '',
+            tags: [],
             platforms: [],
             media: [],
             thumbnail_media_id: null,
@@ -487,6 +494,7 @@ export default {
                 const payload = {
                     content: form.value.content,
                     content_html: form.value.content_html,
+                    tags: form.value.tags,
                     platforms: form.value.platforms,
                     media: form.value.media,
                 };
@@ -552,6 +560,7 @@ export default {
                 const escape = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 form.value.content_html = response.data.content_html
                     || response.data.content.split(/\n{2,}/).map(p => `<p>${escape(p).replace(/\n/g, '<br>')}</p>`).join('');
+                form.value.tags = response.data.tags || [];
             } catch (err) {
                 error.value = 'Could not load the post to copy.';
             }

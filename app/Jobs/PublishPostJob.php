@@ -55,7 +55,8 @@ class PublishPostJob implements ShouldQueue
                     $this->post->content,
                     $platform->credentials,
                     $media,
-                    $this->post->content_html // only WebsiteService uses this; other services ignore extra args
+                    $this->post->content_html, // html and tags are only used by WebsiteService; other services ignore extra args
+                    $this->post->tags ?? []
                 );
 
                 // Always store the URL if available, even if success is false

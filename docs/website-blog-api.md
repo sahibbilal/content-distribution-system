@@ -25,10 +25,12 @@ JSON body:
   "content": "<p>Sanitized HTML body (title block already removed)</p>",
   "excerpt": "Plain-text summary, up to 200 chars",
   "status": "published",
+  "tags": ["AI", "PHP"],
   "cover_image": "https://bilalmahmood.dev/uploads/abc.jpg",
   "media": [{ "type": "image", "url": "https://bilalmahmood.dev/uploads/abc.jpg" }]
 }
 ```
+- `tags` is an array of strings (`[]` if none), from the Tags field on the post.
 - `cover_image` is the first uploaded image, or `null`.
 - `media` lists every uploaded file (empty array if none). Render video/audio however the blog wants.
 - `content` allows only: p, br, strong, em, u, s, ul, ol, li, a, blockquote, h2, h3.

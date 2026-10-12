@@ -73,7 +73,7 @@
     .badge-neutral { @apply bg-slate-100 text-slate-600 ring-slate-500/20; }
 
     /* Inline messages */
-    .alert { @apply flex items-start gap-2.5 rounded-lg px-4 py-3 text-sm whitespace-pre-line ring-1 ring-inset; }
+    .alert { @apply flex items-start gap-2.5 rounded-lg px-4 py-3 text-sm whitespace-pre-line [overflow-wrap:anywhere] ring-1 ring-inset; }
     .alert-error { @apply bg-red-50 text-red-800 ring-red-600/20; }
     .alert-success { @apply bg-emerald-50 text-emerald-800 ring-emerald-600/20; }
     .alert-info { @apply bg-brand-50 text-brand-900 ring-brand-600/20; }
