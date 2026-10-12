@@ -37,11 +37,11 @@ class WebsiteService implements PlatformServiceInterface
 
             $uploaded = array_map(fn ($item) => [
                 'type' => $item['type'],
-                'url' => $this->uploadMedia($base, $credentials['api_token'], $item),
+                'url' => $this->uploadMedia($base, $this->token($credentials), $item),
             ], $media);
             $cover = collect($uploaded)->firstWhere('type', 'image')['url'] ?? null;
 
-            $response = Http::withToken($credentials['api_token'])
+            $response = Http::withToken($this->token($credentials))
                 ->acceptJson()
                 ->timeout(30)
                 ->post("{$base}/posts", [
@@ -132,6 +132,12 @@ class WebsiteService implements PlatformServiceInterface
         return rtrim(trim($credentials['api_url']), '/');
     }
 
+    // A pasted token often carries a trailing space or newline, which makes the server reject it
+    private function token(array $credentials): string
+    {
+        return trim($credentials['api_token']);
+    }
+
     public function validateCredentials(array $credentials): bool
     {
         $url = trim($credentials['api_url'] ?? '');
@@ -148,7 +154,7 @@ class WebsiteService implements PlatformServiceInterface
         }
 
         try {
-            $response = Http::withToken($credentials['api_token'])
+            $response = Http::withToken($this->token($credentials))
                 ->acceptJson()
                 ->timeout(10)
                 ->get($this->baseUrl($credentials) . '/me');
