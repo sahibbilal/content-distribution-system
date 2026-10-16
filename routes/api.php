@@ -10,6 +10,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\EpisodeController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PlatformController;
+use App\Http\Controllers\PostSeriesController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ScheduleController;
@@ -86,6 +87,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/episodes/{id}/retry', [EpisodeController::class, 'retry']);
     Route::post('/episodes/{id}/cancel', [EpisodeController::class, 'cancel']);
 
+    Route::apiResource('post-series', PostSeriesController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::apiResource('posts', PostController::class);
     Route::get('/schedules/calendar', [ScheduleController::class, 'calendar']);
     Route::apiResource('schedules', ScheduleController::class)->only(['index', 'destroy']);

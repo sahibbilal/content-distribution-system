@@ -19,6 +19,7 @@ import Profile from './pages/Profile.vue';
 import Platforms from './pages/Platforms.vue';
 import Posts from './pages/Posts.vue';
 import PostDetail from './pages/PostDetail.vue';
+import Series from './pages/Series.vue';
 import Calendar from './pages/Calendar.vue';
 import Media from './pages/Media.vue';
 import AdminSettings from './pages/AdminSettings.vue';
@@ -132,6 +133,7 @@ const routes = [
     { path: '/create-post', component: CreatePost, meta: { requiresAuth: true } },
     { path: '/posts', component: Posts, meta: { requiresAuth: true } },
     { path: '/posts/:id', component: PostDetail, meta: { requiresAuth: true } },
+    { path: '/series', component: Series, meta: { requiresAuth: true } },
     { path: '/ai-assistant', component: AiAssistant, meta: { requiresAuth: true } },
     { path: '/episodes', component: Episodes, meta: { requiresAuth: true } },
     { path: '/episodes/:id', component: EpisodeDetail, meta: { requiresAuth: true } },

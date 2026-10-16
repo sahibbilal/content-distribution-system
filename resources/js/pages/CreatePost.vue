@@ -165,6 +165,11 @@
             <!-- Publish settings -->
             <div class="space-y-6 lg:sticky lg:top-8 lg:self-start">
                 <section class="card p-5">
+                    <h2 class="label">Series <span class="font-normal text-slate-400">(optional)</span></h2>
+                    <SeriesPicker v-model="form.series_id" />
+                </section>
+
+                <section class="card p-5">
                     <h2 class="label">Platforms</h2>
                     <div v-if="loadingPlatforms" class="space-y-2">
                         <div v-for="n in 2" :key="n" class="h-12 animate-pulse rounded-lg bg-slate-100"></div>
@@ -245,13 +250,14 @@ import ChannelTexts from '../components/ChannelTexts.vue';
 import PageHeader from '../components/PageHeader.vue';
 import PlatformIcon from '../components/PlatformIcon.vue';
 import RichTextEditor from '../components/RichTextEditor.vue';
+import SeriesPicker from '../components/SeriesPicker.vue';
 import TagsInput from '../components/TagsInput.vue';
 import { platformLabel } from '../platforms.js';
 import { cleanHashtags, forPlatform, length as textLength, limitFor } from '../postText.js';
 
 export default {
     name: 'CreatePost',
-    components: { CalendarClock, Check, CircleAlert, FileIcon, Film, ImageIcon, Images, Music, PenLine, Send, Sparkles, UploadCloud, X, AskAiPanel, ChannelTexts, PageHeader, PlatformIcon, RichTextEditor, TagsInput },
+    components: { CalendarClock, Check, CircleAlert, FileIcon, Film, ImageIcon, Images, Music, PenLine, Send, Sparkles, UploadCloud, X, AskAiPanel, ChannelTexts, PageHeader, PlatformIcon, RichTextEditor, SeriesPicker, TagsInput },
     setup() {
         const router = useRouter();
         const route = useRoute();
@@ -259,6 +265,7 @@ export default {
             content: '', // plain text, filled in by the editor
             content_html: '',
             tags: [], // website tags
+            series_id: null,
             ai_generation_id: null, // the AI draft this post came from (kept in the project's memory)
             hashtags: [], // for the social channels
             overrides: {}, // {platformId: {content?, hashtags?}}: a channel's own text or hashtags
@@ -543,6 +550,7 @@ export default {
                     content_html: form.value.content_html,
                     tags: form.value.tags,
                     hashtags: form.value.hashtags,
+                    series_id: form.value.series_id,
                     ...(form.value.ai_generation_id ? { ai_generation_id: form.value.ai_generation_id } : {}),
                     // only the channels that are selected, and only an own text that is not empty
                     platform_overrides: Object.fromEntries(Object.entries(form.value.overrides)
@@ -616,6 +624,7 @@ export default {
                     || response.data.content.split(/\n{2,}/).map(p => `<p>${escape(p).replace(/\n/g, '<br>')}</p>`).join('');
                 form.value.tags = response.data.tags || [];
                 form.value.hashtags = response.data.hashtags || [];
+                form.value.series_id = response.data.series_id || null;
                 form.value.overrides = response.data.platform_overrides || {};
             } catch (err) {
                 error.value = 'Could not load the post to copy.';

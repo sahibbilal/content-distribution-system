@@ -15,7 +15,7 @@
             </button>
         </div>
 
-        <div class="mb-5 grid gap-3 sm:grid-cols-3">
+        <div class="mb-5 grid gap-3 sm:grid-cols-4">
             <div class="relative sm:col-span-2">
                 <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input v-model="search" type="search" class="input pl-9" placeholder="Search post content..." aria-label="Search posts" />
@@ -23,6 +23,10 @@
             <select v-model="platform" class="input" aria-label="Filter by platform">
                 <option value="">All platforms</option>
                 <option v-for="type in platformOptions" :key="type" :value="type">{{ platformLabel(type) }}</option>
+            </select>
+            <select v-model="seriesId" class="input" aria-label="Filter by series">
+                <option value="">All series</option>
+                <option v-for="s in seriesList" :key="s.id" :value="String(s.id)">{{ s.name }}</option>
             </select>
         </div>
 
@@ -57,6 +61,7 @@
                                 <span class="inline-flex items-center gap-1">
                                     <PlatformIcon v-for="type in platformTypes(post)" :key="type" :type="type" :size="16" />
                                 </span>
+                                <span v-if="post.series" class="badge badge-neutral">{{ post.series.name }}</span>
                                 <span v-if="post.media?.length" class="inline-flex items-center gap-1">
                                     <Paperclip class="h-3.5 w-3.5" /> {{ post.media.length }}
                                 </span>
@@ -121,6 +126,8 @@ export default {
         const status = ref(tabs.some(t => t.value === route.query.status) ? route.query.status : '');
         const platform = ref(typeof route.query.platform === 'string' ? route.query.platform : '');
         const search = ref(typeof route.query.q === 'string' ? route.query.q : '');
+        const seriesId = ref(typeof route.query.series === 'string' ? route.query.series : '');
+        const seriesList = ref([]);
         const page = ref(Math.max(1, parseInt(route.query.page, 10) || 1));
         const posts = ref([]);
         const platforms = ref([]);
@@ -130,12 +137,13 @@ export default {
         let searchTimer;
 
         const platformOptions = computed(() => [...new Set(platforms.value.map(p => p.platform_type))]);
-        const filtered = computed(() => !!(status.value || platform.value || search.value.trim()));
+        const filtered = computed(() => !!(status.value || platform.value || seriesId.value || search.value.trim()));
 
         const syncUrl = () => router.replace({
             query: {
                 ...(status.value && { status: status.value }),
                 ...(platform.value && { platform: platform.value }),
+                ...(seriesId.value && { series: seriesId.value }),
                 ...(search.value.trim() && { q: search.value.trim() }),
                 ...(page.value > 1 && { page: page.value }),
             },
@@ -149,6 +157,7 @@ export default {
                     params: {
                         status: status.value || undefined,
                         platform: platform.value || undefined,
+                        series_id: seriesId.value || undefined,
                         search: search.value.trim() || undefined,
                         page: page.value,
                     },
@@ -186,11 +195,13 @@ export default {
             clearTimeout(searchTimer);
             status.value = '';
             platform.value = '';
+            seriesId.value = '';
             search.value = '';
             applyFilters();
         };
 
         watch(platform, applyFilters);
+        watch(seriesId, applyFilters);
         // wait for a pause in typing before searching
         watch(search, () => {
             clearTimeout(searchTimer);
@@ -233,6 +244,7 @@ export default {
 
         onMounted(async () => {
             loadPosts();
+            axios.get('/post-series').then(r => { seriesList.value = r.data; }).catch(() => {});
             try {
                 platforms.value = (await axios.get('/platforms')).data;
             } catch (error) {
@@ -241,7 +253,7 @@ export default {
         });
 
         return {
-            tabs, status, platform, search, posts, page, lastPage, loading, emptyText, filtered, platformOptions, pageNumbers,
+            tabs, status, platform, seriesId, seriesList, search, posts, page, lastPage, loading, emptyText, filtered, platformOptions, pageNumbers,
             platformLabel, setStatus, clearFilters, goToPage, platformTypes, statusBadge, formatDate,
         };
     },
