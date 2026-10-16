@@ -147,6 +147,17 @@ jobs:
           php artisan view:clear
           php artisan config:clear
 
+          # Scheduled posts need the Laravel scheduler to run every minute. Add the cron entry once
+          # (matched by path, so later deploys leave it alone). A failure here never fails the deploy.
+          PHP_BIN=$(command -v php)
+          if crontab -l 2>/dev/null | grep -qF "cd $DEPLOY_PATH && $PHP_BIN artisan schedule:run"; then
+            echo "Cron entry for the scheduler already installed"
+          else
+            { crontab -l 2>/dev/null || true; echo "* * * * * cd $DEPLOY_PATH && $PHP_BIN artisan schedule:run >> /dev/null 2>&1"; } | crontab - \
+              && echo "Installed the scheduler cron entry" \
+              || echo "WARNING: could not install the cron entry; add it in cPanel > Cron Jobs"
+          fi
+
           echo "$GIT_SHA" > .deploy-sha
           echo "Deployed $GIT_SHA"
           REMOTE

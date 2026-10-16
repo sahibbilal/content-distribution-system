@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
  */
 class PipelineSettings
 {
-    /** key => [config path, secret?, type, label] */
+    /** key => [config path, secret?, type (string, int, float or list)] */
     public const FIELDS = [
         'worker_url' => ['services.worker.url', false, 'string'],
         'worker_secret' => ['services.worker.secret', true, 'string'],
@@ -26,6 +26,13 @@ class PipelineSettings
         'series_publish_at' => ['series.a.publish_at', false, 'string'],
         'series_timezone' => ['series.a.timezone', false, 'string'],
         'series_shorts' => ['series.a.shorts', false, 'int'],
+        'series_skip_before_minutes' => ['series.a.skip_before_minutes', false, 'int'],
+        'series_user_id' => ['series.a.user_id', false, 'int'],
+        'series_platforms_long' => ['series.a.platforms.long', false, 'list'],
+        'series_platforms_short' => ['series.a.platforms.short', false, 'list'],
+        'series_limit_researching' => ['series.a.limits.researching', false, 'int'],
+        'series_limit_voicing' => ['series.a.limits.voicing', false, 'int'],
+        'series_limit_editing' => ['series.a.limits.editing', false, 'int'],
     ];
 
     /** Saved values by key (secrets decrypted). Empty when the table does not exist yet (before migrating). */
@@ -52,27 +59,37 @@ class PipelineSettings
         return $saved;
     }
 
+    /** The built-in (config file / .env) value of every setting, remembered before a saved value replaces it */
+    private static array $defaults = [];
+
     /** Write the saved values into config() */
     public static function apply(): void
     {
+        if (!self::$defaults) {
+            foreach (self::FIELDS as $key => [$path]) {
+                self::$defaults[$key] = config($path);
+            }
+        }
+
         foreach (self::saved() as $key => $value) {
             [$path, , $type] = self::FIELDS[$key];
             config([$path => match ($type) {
                 'int' => (int) $value,
                 'float' => (float) $value,
+                'list' => array_values(array_filter(array_map('trim', explode(',', $value)))), // saved as "a,b"
                 default => $value,
             }]);
         }
     }
 
-    /** Save changes: blank secrets are left alone, `clear` goes back to the .env default */
+    /** Save changes: blank secrets are left alone, `clear` (and a blank normal field) goes back to the built-in default */
     public static function save(array $values, array $clear = []): void
     {
         foreach ($values as $key => $value) {
             if (!isset(self::FIELDS[$key])) {
                 continue;
             }
-            $value = is_string($value) ? trim($value) : $value;
+            $value = is_array($value) ? implode(',', array_filter(array_map('trim', $value))) : (is_string($value) ? trim($value) : $value);
             if ($value === null || $value === '') {
                 if (!self::FIELDS[$key][1]) {
                     $clear[] = $key; // a blank normal field means "use the default"
@@ -86,7 +103,12 @@ class PipelineSettings
         }
 
         if ($clear) {
-            DB::table('pipeline_settings')->whereIn('key', array_intersect($clear, array_keys(self::FIELDS)))->delete();
+            $keys = array_intersect($clear, array_keys(self::FIELDS));
+            DB::table('pipeline_settings')->whereIn('key', $keys)->delete();
+            // this process keeps running with the old value in config() unless it is put back
+            foreach ($keys as $key) {
+                config([self::FIELDS[$key][0] => self::$defaults[$key] ?? null]);
+            }
         }
     }
 }

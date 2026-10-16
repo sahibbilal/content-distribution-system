@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Http;
 /** Admin > Content pipeline: the cloud worker, ElevenLabs and Series A settings, with connection tests */
 class AdminPipelineController extends Controller
 {
+    /** Platforms whose publishers accept a video (the daily video can go to these) */
+    private const VIDEO_PLATFORMS = ['youtube', 'facebook', 'instagram', 'tiktok', 'twitter', 'linkedin'];
+
     public function show()
     {
         return response()->json($this->present());
@@ -34,6 +37,15 @@ class AdminPipelineController extends Controller
             'values.series_publish_at' => ['nullable', 'regex:/^([01]\d|2[0-3]):[0-5]\d$/'],
             'values.series_timezone' => ['nullable', 'string', 'in:' . implode(',', \DateTimeZone::listIdentifiers())],
             'values.series_shorts' => 'nullable|integer|between:0,6',
+            'values.series_skip_before_minutes' => 'nullable|integer|between:0,120',
+            'values.series_user_id' => 'nullable|integer|exists:users,id',
+            'values.series_platforms_long' => 'nullable|array|min:1',
+            'values.series_platforms_long.*' => 'string|in:' . implode(',', self::VIDEO_PLATFORMS),
+            'values.series_platforms_short' => 'nullable|array|min:1',
+            'values.series_platforms_short.*' => 'string|in:' . implode(',', self::VIDEO_PLATFORMS),
+            'values.series_limit_researching' => 'nullable|integer|between:1,600',
+            'values.series_limit_voicing' => 'nullable|integer|between:1,600',
+            'values.series_limit_editing' => 'nullable|integer|between:1,600',
             'clear' => 'nullable|array',
             'clear.*' => 'string',
         ]);
@@ -145,7 +157,12 @@ class AdminPipelineController extends Controller
             ];
         }
 
-        return ['fields' => $fields, 'checks' => $this->checks()];
+        return [
+            'fields' => $fields,
+            'checks' => $this->checks(),
+            'video_platforms' => self::VIDEO_PLATFORMS,
+            'users' => User::orderBy('id')->limit(200)->get(['id', 'name', 'email']),
+        ];
     }
 
     /** "Is everything in place?" list shown at the top of the page and on the AI Content page */
@@ -176,7 +193,7 @@ class AdminPipelineController extends Controller
             ['key' => 'queue', 'label' => 'Queue worker', 'ok' => $sync || ($queue !== null && $queue < 900),
                 'detail' => $sync ? 'Queue is "sync": jobs run inside the request.' : $ago($queue) . '. A worker must run "php artisan queue:work".'],
             ['key' => 'platforms', 'label' => 'Platforms for video', 'ok' => (bool) array_intersect($connected, array_unique(array_merge($video['long'], $video['short']))),
-                'detail' => implode(', ', array_intersect($connected, array_unique(array_merge($video['long'], $video['short'])))) ?: 'Connect YouTube, Facebook, Instagram or TikTok'],
+                'detail' => implode(', ', array_intersect($connected, array_unique(array_merge($video['long'], $video['short'])))) ?: 'Connect one of: ' . implode(', ', array_map(fn ($t) => \App\Support\PlatformMediaRules::label($t), array_unique(array_merge($video['long'], $video['short']))))],
             ['key' => 'mail', 'label' => 'Email notifications', 'ok' => !in_array(config('mail.default'), ['log', 'array'], true),
                 'detail' => 'Mailer: ' . config('mail.default')],
             ['key' => 'owner', 'label' => 'Daily video owner', 'ok' => (bool) $owner, 'detail' => $owner ? $owner->email : 'No admin user found'],

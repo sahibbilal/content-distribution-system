@@ -124,6 +124,49 @@
                     </div>
                 </div>
 
+                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="label" for="s-owner">The daily video belongs to</label>
+                        <select id="s-owner" v-model="form.series_user_id" class="input">
+                            <option value="">The first admin (default)</option>
+                            <option v-for="u in data.users" :key="u.id" :value="u.id">{{ u.name }} ({{ u.email }})</option>
+                        </select>
+                        <p class="hint">Its platforms are used for posting.</p>
+                    </div>
+                    <div>
+                        <label class="label" for="s-skip">Skip the day when not ready, minutes before publishing</label>
+                        <input id="s-skip" v-model="form.series_skip_before_minutes" type="number" min="0" max="120" class="input" />
+                        <p class="hint">Nothing is posted that day and you are emailed.</p>
+                    </div>
+                </div>
+
+                <fieldset class="mt-4">
+                    <legend class="label">Stop a step that takes longer than (minutes)</legend>
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        <div v-for="l in limits" :key="l.key">
+                            <label class="label font-normal text-slate-600" :for="'s-' + l.key">{{ l.label }}</label>
+                            <input :id="'s-' + l.key" v-model="form[l.key]" type="number" min="1" max="600" class="input" />
+                        </div>
+                    </div>
+                    <p class="hint">A step that runs longer is marked failed, and you can retry it.</p>
+                </fieldset>
+
+                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <fieldset v-for="o in outputs" :key="o.key">
+                        <legend class="label">{{ o.label }} goes to</legend>
+                        <div class="grid gap-2">
+                            <label v-for="type in data.video_platforms" :key="type" class="block cursor-pointer">
+                                <input v-model="form[o.key]" type="checkbox" :value="type" class="peer sr-only" />
+                                <span class="flex items-center gap-3 rounded-lg bg-white px-3.5 py-2 ring-1 ring-inset ring-slate-300 transition peer-checked:bg-brand-50 peer-checked:ring-2 peer-checked:ring-brand-600">
+                                    <PlatformIcon :type="type" :size="18" />
+                                    <span class="text-sm font-medium text-slate-800">{{ platformLabel(type) }}</span>
+                                </span>
+                            </label>
+                        </div>
+                    </fieldset>
+                    <p class="hint sm:col-span-2">Only platforms you have connected are used; one that is not connected is skipped. Choose at least one for each.</p>
+                </div>
+
                 <div class="mt-5">
                     <button type="button" class="btn btn-primary" :disabled="busy" @click="save"><Save class="h-4 w-4" /> Save</button>
                 </div>
@@ -139,19 +182,24 @@ import { AudioLines, Clock, PlugZap, Save, Server } from 'lucide-vue-next';
 import AdminNav from '../components/AdminNav.vue';
 import PageHeader from '../components/PageHeader.vue';
 import PipelineChecks from '../components/PipelineChecks.vue';
+import PlatformIcon from '../components/PlatformIcon.vue';
 import { toast } from '../feedback.js';
+import { platformLabel } from '../platforms.js';
 
 // text fields that map straight to a saved setting
 const TEXT_KEYS = [
     'worker_url', 'elevenlabs_voice_id', 'elevenlabs_model_id',
     'elevenlabs_stability', 'elevenlabs_similarity_boost', 'elevenlabs_style',
     'series_research_at', 'series_publish_at', 'series_timezone', 'series_shorts',
+    'series_user_id', 'series_skip_before_minutes', 'series_limit_researching', 'series_limit_voicing', 'series_limit_editing',
 ];
+// settings that are a list of platform types (checkboxes)
+const LIST_KEYS = ['series_platforms_long', 'series_platforms_short'];
 const SECRET_KEYS = ['worker_secret', 'elevenlabs_key'];
 
 export default {
     name: 'AdminPipeline',
-    components: { AdminNav, AudioLines, Clock, PageHeader, PipelineChecks, PlugZap, Save, Server },
+    components: { AdminNav, AudioLines, Clock, PageHeader, PipelineChecks, PlatformIcon, PlugZap, Save, Server },
     setup() {
         const data = ref(null);
         const form = ref({});
@@ -166,10 +214,21 @@ export default {
             { key: 'elevenlabs_style', label: 'Style', hint: '0 to 1' },
         ];
 
+        const limits = [
+            { key: 'series_limit_researching', label: 'Research' },
+            { key: 'series_limit_voicing', label: 'Voice' },
+            { key: 'series_limit_editing', label: 'Video edit' },
+        ];
+        const outputs = [
+            { key: 'series_platforms_long', label: 'The long video' },
+            { key: 'series_platforms_short', label: 'Each Short' },
+        ];
+
         const fill = (payload) => {
             data.value = payload;
             const next = {};
             TEXT_KEYS.forEach(k => { next[k] = payload.fields[k].value ?? ''; });
+            LIST_KEYS.forEach(k => { next[k] = [...(payload.fields[k].value || [])]; });
             SECRET_KEYS.forEach(k => { next[k] = ''; });
             form.value = next;
         };
@@ -196,6 +255,9 @@ export default {
             error.value = '';
             try {
                 const values = {};
+                for (const k of LIST_KEYS) {
+                    if ([...form.value[k]].sort().join() !== [...(data.value.fields[k].value || [])].sort().join()) values[k] = form.value[k];
+                }
                 for (const k of [...TEXT_KEYS, ...SECRET_KEYS]) {
                     const shown = data.value.fields[k].value ?? '';
                     if (SECRET_KEYS.includes(k) ? form.value[k] : String(form.value[k]) !== String(shown)) {
@@ -233,7 +295,7 @@ export default {
 
         onMounted(load);
 
-        return { data, form, results, loading, busy, error, timezones, voiceSettings, secretPlaceholder, save, test };
+        return { data, form, results, loading, busy, error, timezones, voiceSettings, limits, outputs, platformLabel, secretPlaceholder, save, test };
     },
 };
 </script>
