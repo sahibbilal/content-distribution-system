@@ -2,17 +2,19 @@
 
 return [
 
-    // Series A: one episode per day, researched at research_at, posted at publish_at (both in `timezone`)
+    // Series A: one episode per day, researched at research_at, posted at publish_at (both in `timezone`).
+    // These are only the starting values: every one of them can be changed on Admin > Content pipeline,
+    // and what is saved there wins (see App\Support\PipelineSettings).
     'a' => [
-        'timezone' => env('SERIES_TIMEZONE', 'Asia/Karachi'),
-        'research_at' => env('SERIES_A_RESEARCH_AT', '17:00'),
-        'publish_at' => env('SERIES_A_PUBLISH_AT', '21:00'),
+        'timezone' => 'Asia/Karachi',
+        'research_at' => '17:00',
+        'publish_at' => '21:00',
         // if the episode is not ready this many minutes before its publish time, the day is skipped
         'skip_before_minutes' => 15,
         'shorts' => 3,
         // the account that owns the daily episodes (defaults to the first admin)
-        'user_id' => env('SERIES_A_USER_ID'),
-        // platform types per output. X and LinkedIn are left out: they can't publish video yet.
+        'user_id' => null,
+        // platform types per output
         'platforms' => [
             'long' => ['youtube', 'facebook'],
             'short' => ['youtube', 'facebook', 'instagram', 'tiktok'],

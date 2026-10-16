@@ -163,4 +163,77 @@ class PipelineSettingsTest extends TestCase
 
         $this->assertNotNull(Cache::get('pipeline:queue-ran'));
     }
+    public function test_every_series_a_setting_can_be_saved_and_is_used(): void
+    {
+        $other = User::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => 'password123']);
+
+        $res = $this->putJson('/api/admin/pipeline', ['values' => [
+            'series_research_at' => '16:30', 'series_publish_at' => '20:15', 'series_timezone' => 'Asia/Dubai', 'series_shorts' => 2,
+            'series_skip_before_minutes' => 30, 'series_user_id' => $other->id,
+            'series_platforms_long' => ['youtube', 'linkedin'], 'series_platforms_short' => ['tiktok', 'twitter'],
+            'series_limit_researching' => 45, 'series_limit_voicing' => 20, 'series_limit_editing' => 90,
+        ]])->assertOk();
+
+        $res->assertJsonPath('fields.series_platforms_long.value', ['youtube', 'linkedin'])
+            ->assertJsonPath('fields.series_platforms_short.source', 'saved')
+            ->assertJsonPath('fields.series_user_id.value', $other->id)
+            ->assertJsonPath('fields.series_limit_editing.value', 90);
+
+        $this->assertSame('16:30', config('series.a.research_at'));
+        $this->assertSame('20:15', config('series.a.publish_at'));
+        $this->assertSame('Asia/Dubai', config('series.a.timezone'));
+        $this->assertSame(2, config('series.a.shorts'));
+        $this->assertSame(30, config('series.a.skip_before_minutes'));
+        $this->assertSame($other->id, config('series.a.user_id'));
+        $this->assertSame(['youtube', 'linkedin'], config('series.a.platforms.long'));
+        $this->assertSame(['tiktok', 'twitter'], config('series.a.platforms.short'));
+        $this->assertSame(['researching' => 45, 'voicing' => 20, 'editing' => 90], config('series.a.limits'));
+
+        // and a fresh request (the settings come back from the database) sees the same
+        config(['series.a.platforms.long' => ['facebook'], 'series.a.limits.editing' => 1]);
+        PipelineSettings::apply();
+        $this->assertSame(['youtube', 'linkedin'], config('series.a.platforms.long'));
+        $this->assertSame(90, config('series.a.limits.editing'));
+    }
+
+    public function test_the_saved_owner_gets_the_daily_episode_and_the_saved_limit_stops_a_stuck_step(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake();
+        $owner = User::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => 'password123']);
+        $this->putJson('/api/admin/pipeline', ['values' => ['series_user_id' => $owner->id, 'series_limit_researching' => 5]])->assertOk();
+
+        $this->artisan('episodes:start-daily')->assertSuccessful();
+        $this->assertSame($owner->id, \App\Models\Episode::firstOrFail()->user_id);
+
+        $stuck = \App\Models\Episode::create(['user_id' => $owner->id, 'series' => 'series-a', 'run_date' => now()->subDay()->toDateString(), 'status' => 'researching', 'step_started_at' => now()->subMinutes(10), 'scheduled_for' => now()->addDay()]);
+        (new \App\Jobs\EpisodeWatchdogJob)->handle();
+
+        $this->assertSame('failed', $stuck->fresh()->status);
+    }
+
+    public function test_series_a_platform_lists_and_numbers_are_validated(): void
+    {
+        $this->putJson('/api/admin/pipeline', ['values' => ['series_platforms_long' => []]])->assertStatus(422);
+        $this->putJson('/api/admin/pipeline', ['values' => ['series_platforms_short' => ['myspace']]])->assertStatus(422);
+        $this->putJson('/api/admin/pipeline', ['values' => ['series_user_id' => 99999]])->assertStatus(422);
+        $this->putJson('/api/admin/pipeline', ['values' => ['series_limit_editing' => 0]])->assertStatus(422);
+        $this->putJson('/api/admin/pipeline', ['values' => ['series_skip_before_minutes' => 500]])->assertStatus(422);
+    }
+
+    public function test_a_blank_series_setting_goes_back_to_the_built_in_default(): void
+    {
+        $this->putJson('/api/admin/pipeline', ['values' => ['series_limit_voicing' => 55, 'series_user_id' => $this->admin->id]])->assertOk();
+
+        $this->putJson('/api/admin/pipeline', ['values' => ['series_limit_voicing' => '', 'series_user_id' => '']])->assertOk()
+            ->assertJsonPath('fields.series_limit_voicing.source', 'default')
+            ->assertJsonPath('fields.series_limit_voicing.value', 10)
+            ->assertJsonPath('fields.series_user_id.value', null);
+    }
+
+    public function test_the_page_gets_the_owner_list_and_the_video_platforms(): void
+    {
+        $this->getJson('/api/admin/pipeline')->assertOk()
+            ->assertJsonPath('users.0.email', 'a@example.com')
+            ->assertJsonPath('video_platforms', ['youtube', 'facebook', 'instagram', 'tiktok', 'twitter', 'linkedin']);
+    }
 }

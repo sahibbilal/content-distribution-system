@@ -127,13 +127,9 @@ CLAUDE_WORKER_SECRET=long-random-string        # HMAC for both directions; the w
 ELEVENLABS_API_KEY=...
 ELEVENLABS_VOICE_ID=...
 ELEVENLABS_MODEL_ID=eleven_v3
-SERIES_A_RESEARCH_AT=17:00
-SERIES_A_PUBLISH_AT=21:00
-SERIES_TIMEZONE=Asia/Karachi                   # not APP_TIMEZONE, which stays UTC
-SERIES_A_USER_ID=                              # optional; defaults to the first admin
 ```
 
-`config/series.php` holds the Series A settings (times, Shorts count, platforms per output, step time limits). `config/services.php` holds the worker and ElevenLabs settings.
+**Series A settings are no longer in `.env`.** All of them are fields on Admin > Content pipeline: research time, publish time, timezone, Shorts per episode, who owns the daily video, minutes before publishing after which an unready day is skipped, the time limit of the research, voice and edit steps, and which platforms the long video and each Short go to (YouTube, Facebook, Instagram, TikTok, X, LinkedIn). `config/series.php` only holds the starting values; a blank field goes back to them. The worker and ElevenLabs keys can still be given in `.env` (`config/services.php`) but the page overrides them.
 
 Notifications are emails to the episode's user through the app's existing mail setup. Telegram is not used (it needs a VPN locally); push notifications come with the mobile app (document 04).
 

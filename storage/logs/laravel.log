@@ -3119,3 +3119,5 @@
 [2026-10-16 10:36:20] local.INFO: Facebook post published {"post_id":"1_2","post_url":"https://www.facebook.com/1_2"} 
 [2026-10-16 11:02:29] local.INFO: Facebook publish attempt {"page_id":"A","has_content":true,"has_media":false} 
 [2026-10-16 11:02:29] local.INFO: Facebook post published {"post_id":"1_2","post_url":"https://www.facebook.com/1_2"} 
+[2026-10-16 12:24:11] local.INFO: Facebook publish attempt {"page_id":"A","has_content":true,"has_media":false} 
+[2026-10-16 12:24:11] local.INFO: Facebook post published {"post_id":"1_2","post_url":"https://www.facebook.com/1_2"} 
