@@ -5,7 +5,8 @@
 
         <p class="lead">
             Connect the AI providers the app can use. API keys are stored encrypted and are never shown again after saving.
-            AI content generation is not yet available to users; connecting a provider here prepares it.
+            <strong>Anthropic</strong> writes the drafts when someone presses "Ask AI" on Create Post (its Model field is optional; the default is a current Claude model).
+            <strong>OpenAI</strong> makes the pictures: set its Model field to the image model (e.g. gpt-image-1).
         </p>
 
         <div v-if="loading" class="muted">Loading...</div>

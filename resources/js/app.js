@@ -22,8 +22,12 @@ import PostDetail from './pages/PostDetail.vue';
 import Calendar from './pages/Calendar.vue';
 import Media from './pages/Media.vue';
 import AdminSettings from './pages/AdminSettings.vue';
+import AdminPipeline from './pages/AdminPipeline.vue';
+import AiAssistant from './pages/AiAssistant.vue';
 import DataDeletion from './pages/DataDeletion.vue';
 import PlatformDetail from './pages/PlatformDetail.vue';
+import Episodes from './pages/Episodes.vue';
+import EpisodeDetail from './pages/EpisodeDetail.vue';
 
 // Configure axios
 // Determine API base URL based on environment
@@ -124,9 +128,13 @@ const routes = [
     { path: '/admin/ai', component: AdminAi, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/email', component: AdminEmail, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/admin/settings', component: AdminSettings, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/admin/pipeline', component: AdminPipeline, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/create-post', component: CreatePost, meta: { requiresAuth: true } },
     { path: '/posts', component: Posts, meta: { requiresAuth: true } },
     { path: '/posts/:id', component: PostDetail, meta: { requiresAuth: true } },
+    { path: '/ai-assistant', component: AiAssistant, meta: { requiresAuth: true } },
+    { path: '/episodes', component: Episodes, meta: { requiresAuth: true } },
+    { path: '/episodes/:id', component: EpisodeDetail, meta: { requiresAuth: true } },
     { path: '/calendar', component: Calendar, meta: { requiresAuth: true } },
     { path: '/media', component: Media, meta: { requiresAuth: true } },
     { path: '/settings', component: Settings, meta: { requiresAuth: true } },

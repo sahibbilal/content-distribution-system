@@ -1,15 +1,20 @@
 <?php
 
 use App\Http\Controllers\AdminAiController;
+use App\Http\Controllers\AiAssistantController;
+use App\Http\Controllers\AiDraftController;
 use App\Http\Controllers\AdminMailController;
+use App\Http\Controllers\AdminPipelineController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\EpisodeController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PlatformController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\SiteContentController;
+use App\Http\Controllers\WorkerWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function () {
@@ -28,6 +33,10 @@ Route::prefix('auth')->group(function () {
     });
 });
 
+// Cloud worker results (HMAC signed) and signed downloads of episode input files (voice, avatar, captions)
+Route::post('/webhooks/worker', WorkerWebhookController::class)->name('webhooks.worker')->middleware('throttle:60,1');
+Route::get('/episode-files/{episode}/{kind}', [EpisodeController::class, 'file'])->name('episodes.file')->middleware('signed');
+
 // Public site content (home page, legal pages)
 Route::get('/site-content', [SiteContentController::class, 'show']);
 
@@ -43,11 +52,40 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::put('/admin/ai/{provider}', [AdminAiController::class, 'update']);
     Route::post('/admin/ai/{provider}/test', [AdminAiController::class, 'test']);
 
+    Route::get('/admin/pipeline', [AdminPipelineController::class, 'show']);
+    Route::put('/admin/pipeline', [AdminPipelineController::class, 'update']);
+    Route::post('/admin/pipeline/test/{service}', [AdminPipelineController::class, 'test']);
+
     Route::get('/admin/mail', [AdminMailController::class, 'show']);
     Route::post('/admin/mail/test', [AdminMailController::class, 'test']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/ai/assistant', [AiAssistantController::class, 'show']);
+    Route::put('/ai/instructions/{section}', [AiAssistantController::class, 'updateSection']);
+    Route::delete('/ai/instructions/{section}', [AiAssistantController::class, 'resetSection']);
+    Route::post('/ai/projects', [AiAssistantController::class, 'storeProject']);
+    Route::put('/ai/projects/{id}', [AiAssistantController::class, 'updateProject']);
+    Route::delete('/ai/projects/{id}', [AiAssistantController::class, 'destroyProject']);
+    Route::get('/ai/projects/{id}/memory', [AiAssistantController::class, 'memory']);
+    Route::delete('/ai/projects/{id}/memory', [AiAssistantController::class, 'clearMemory']);
+
+    Route::post('/ai/draft', [AiDraftController::class, 'draft'])->middleware('throttle:20,1');
+    Route::get('/ai/draft/{id}', [AiDraftController::class, 'show']);
+
+    Route::get('/episodes', [EpisodeController::class, 'index']);
+    Route::post('/episodes', [EpisodeController::class, 'store']);
+    Route::get('/episodes/{id}', [EpisodeController::class, 'show']);
+    Route::patch('/episodes/{id}', [EpisodeController::class, 'update']);
+    Route::post('/episodes/{id}/approve', [EpisodeController::class, 'approve']);
+    Route::post('/episodes/{id}/reject', [EpisodeController::class, 'reject']);
+    Route::post('/episodes/{id}/revise', [EpisodeController::class, 'revise']);
+    Route::post('/episodes/{id}/avatar', [EpisodeController::class, 'avatar']);
+    Route::post('/episodes/{id}/approve-outputs', [EpisodeController::class, 'approveOutputs']);
+    Route::post('/episodes/{id}/cancel-posting', [EpisodeController::class, 'cancelPosting']);
+    Route::post('/episodes/{id}/retry', [EpisodeController::class, 'retry']);
+    Route::post('/episodes/{id}/cancel', [EpisodeController::class, 'cancel']);
+
     Route::apiResource('posts', PostController::class);
     Route::get('/schedules/calendar', [ScheduleController::class, 'calendar']);
     Route::apiResource('schedules', ScheduleController::class)->only(['index', 'destroy']);
@@ -57,6 +95,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{platform}/connect', [PlatformController::class, 'connect']);
         Route::post('/{platform}/test', [PlatformController::class, 'test']);
         Route::delete('/{platform}/disconnect', [PlatformController::class, 'disconnect']);
+        Route::patch('/{platform}/settings', [PlatformController::class, 'settings']);
         
         // LinkedIn OAuth routes
         Route::prefix('linkedin/oauth')->group(function () {

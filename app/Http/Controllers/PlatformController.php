@@ -18,6 +18,7 @@ class PlatformController extends Controller
                     'platform_type' => $platform->platform_type,
                     'is_active' => $platform->is_active,
                     'credentials_valid' => $this->hasValidCredentials($platform),
+                    'account_tier' => $platform->platform_type === 'twitter' ? ($platform->credentials['account_tier'] ?? 'free') : null,
                     'created_at' => $platform->created_at,
                 ];
             });
@@ -85,6 +86,19 @@ class PlatformController extends Controller
             'platform_type' => $platform->platform_type,
             'is_active' => $platform->is_active,
         ], 201);
+    }
+
+    /** X account type (free or premium): decides how long a post may be */
+    public function settings(Request $request, $platformType)
+    {
+        abort_unless($platformType === 'twitter', 404);
+        $data = $request->validate(['account_tier' => 'required|in:free,premium']);
+
+        $platform = Platform::where('user_id', $request->user()->id)->where('platform_type', 'twitter')->firstOrFail();
+        $platform->credentials = array_merge($platform->credentials ?? [], ['account_tier' => $data['account_tier']]);
+        $platform->save();
+
+        return response()->json(['account_tier' => $data['account_tier']]);
     }
 
     public function disconnect(Request $request, $platformType)

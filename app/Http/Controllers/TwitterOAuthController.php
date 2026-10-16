@@ -34,6 +34,7 @@ class TwitterOAuthController extends Controller
         Cache::put('twitter_oauth_state:' . $state, [
             'user_id' => $request->user()->id,
             'verifier' => $verifier,
+            'account_tier' => $request->query('account_tier') === 'premium' ? 'premium' : 'free',
         ], now()->addMinutes(10));
 
         $authUrl = 'https://twitter.com/i/oauth2/authorize?' . http_build_query([
@@ -113,6 +114,7 @@ class TwitterOAuthController extends Controller
                         'scope' => $token['scope'] ?? null,
                         'user_id' => $me['id'],
                         'username' => $me['username'] ?? null,
+                        'account_tier' => $pending['account_tier'] ?? 'free',
                         'connected_at' => now()->toIso8601String(),
                     ],
                     'is_active' => true,

@@ -18,6 +18,7 @@ export default {
             { to: '/admin', label: 'Site content' },
             { to: '/admin/users', label: 'Users' },
             { to: '/admin/ai', label: 'AI integrations' },
+            { to: '/admin/pipeline', label: 'Content pipeline' },
             { to: '/admin/email', label: 'Email' },
             { to: '/admin/settings', label: 'Settings' },
         ];
