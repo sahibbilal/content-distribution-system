@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class PostController extends Controller
 {
@@ -22,12 +23,14 @@ class PostController extends Controller
             'status' => 'nullable|in:published,scheduled,failed,draft',
             'platform' => 'nullable|string|max:50', // platform type, e.g. facebook
             'search' => 'nullable|string|max:200',
+            'series_id' => 'nullable|integer',
         ]);
 
         $userId = $request->user()->id;
 
         $posts = Post::where('user_id', $userId)
             ->when($request->status, fn ($query, $status) => $query->where('status', $status))
+            ->when($request->series_id, fn ($query, $id) => $query->where('series_id', $id))
             ->when($request->platform, function ($query, $type) use ($userId) {
                 // posts store platform ids; match every one of the user's platforms of this type
                 $ids = Platform::where('user_id', $userId)->where('platform_type', $type)->pluck('id');
@@ -43,7 +46,7 @@ class PostController extends Controller
                 $like = '%' . addcslashes($term, '\\%_') . '%';
                 $query->where('content', 'like', $like);
             })
-            ->with('media')
+            ->with('media', 'series:id,name')
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -55,6 +58,7 @@ class PostController extends Controller
         $request->validate(array_merge($this->textRules(), [
             'platforms' => 'required|array|min:1',
             'platforms.*' => 'exists:platforms,id',
+            'series_id' => ['nullable', Rule::exists('post_series', 'id')->where('user_id', $request->user()->id)],
             'scheduled_at' => 'nullable|date|after:now',
             'media' => 'nullable|array',
             'media.*' => 'exists:media,id',
@@ -65,6 +69,9 @@ class PostController extends Controller
         $hashtags = PostText::cleanHashtags($request->hashtags);
         $overrides = PostText::cleanOverrides($request->platform_overrides, $request->platforms);
         if ($problem = $this->textProblem($request->user()->id, $request->platforms, $content, $hashtags, $overrides, $request->media ?? [])) {
+            return $problem;
+        }
+        if ($problem = $this->duplicateProblem($request->user()->id, $content)) {
             return $problem;
         }
 
@@ -88,6 +95,7 @@ class PostController extends Controller
 
         $post = Post::create([
             'user_id' => $request->user()->id,
+            'series_id' => $request->series_id,
             'content' => $content,
             'content_html' => $contentHtml,
             'tags' => $this->cleanTags($request->tags),
@@ -237,6 +245,30 @@ class PostController extends Controller
         return $messages ? response()->json(['message' => implode("\n", $messages), 'errors' => ['content' => $messages]], 422) : null;
     }
 
+    /** Refuses text that is already posted (or scheduled) by this user: same words, any case or spacing. */
+    private function duplicateProblem(int $userId, string $content, ?int $ignoreId = null)
+    {
+        $hash = Post::hashContent($content);
+        if (!$hash) {
+            return null; // a post with only a picture or video has no text to compare
+        }
+
+        $same = Post::where('user_id', $userId)->where('content_hash', $hash)
+            ->whereIn('status', ['published', 'scheduled'])
+            ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+            ->latest('id')->first();
+        if (!$same) {
+            return null;
+        }
+
+        $when = $same->status === 'published'
+            ? 'posted on ' . ($same->published_at ?? $same->created_at)->format('M j, Y')
+            : 'already scheduled for ' . $same->scheduled_at?->format('M j, Y H:i');
+        $message = "This content is already {$when} (post #{$same->id}). Change the text, or delete the earlier post first.";
+
+        return response()->json(['message' => $message, 'errors' => ['content' => [$message]], 'duplicate_post_id' => $same->id], 422);
+    }
+
     /** Trimmed, non-empty, unique (case-insensitive) tags in the order given. */
     private function cleanTags(?array $tags): array
     {
@@ -271,7 +303,7 @@ class PostController extends Controller
     public function show(Request $request, $id)
     {
         $post = Post::where('user_id', $request->user()->id)
-            ->with('media', 'schedules')
+            ->with('media', 'schedules', 'series:id,name')
             ->findOrFail($id);
 
         return response()->json($post);
@@ -292,6 +324,7 @@ class PostController extends Controller
         $data = $request->validate(array_merge($this->textRules(), [
             'platforms' => 'required|array|min:1',
             'platforms.*' => 'exists:platforms,id',
+            'series_id' => ['nullable', Rule::exists('post_series', 'id')->where('user_id', $request->user()->id)],
             'scheduled_at' => 'required|date|after:now',
         ]));
 
@@ -300,6 +333,9 @@ class PostController extends Controller
         $data['hashtags'] = PostText::cleanHashtags($request->hashtags);
         $data['platform_overrides'] = PostText::cleanOverrides($request->platform_overrides, $data['platforms']);
         if ($problem = $this->textProblem($request->user()->id, $data['platforms'], $data['content'], $data['hashtags'], $data['platform_overrides'], $post->media->pluck('id')->all())) {
+            return $problem;
+        }
+        if ($problem = $this->duplicateProblem($request->user()->id, $data['content'], $post->id)) {
             return $problem;
         }
 

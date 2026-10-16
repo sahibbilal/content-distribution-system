@@ -43,6 +43,11 @@
                 </section>
 
                 <section class="card p-5">
+                    <h2 class="label">Series <span class="font-normal text-slate-400">(optional)</span></h2>
+                    <SeriesPicker v-model="form.series_id" />
+                </section>
+
+                <section class="card p-5">
                     <h2 class="label">Platforms</h2>
                     <div class="grid gap-2 sm:grid-cols-2">
                         <label v-for="platform in platforms" :key="platform.id" class="block cursor-pointer">
@@ -129,6 +134,7 @@ import { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2 } from 'lucid
 import ChannelTexts from '../components/ChannelTexts.vue';
 import PlatformIcon from '../components/PlatformIcon.vue';
 import RichTextEditor from '../components/RichTextEditor.vue';
+import SeriesPicker from '../components/SeriesPicker.vue';
 import TagsInput from '../components/TagsInput.vue';
 import { confirmDialog, toast } from '../feedback.js';
 import { platformLabel } from '../platforms.js';
@@ -142,7 +148,7 @@ const toLocalInput = (iso) => {
 
 export default {
     name: 'PostDetail',
-    components: { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2, ChannelTexts, PlatformIcon, RichTextEditor, TagsInput },
+    components: { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2, ChannelTexts, PlatformIcon, RichTextEditor, SeriesPicker, TagsInput },
     setup() {
         const route = useRoute();
         const router = useRouter();
@@ -186,6 +192,7 @@ export default {
                         || post.value.content.split(/\n{2,}/).map(p => `<p>${escape(p).replace(/\n/g, '<br>')}</p>`).join(''),
                     tags: [...(post.value.tags || [])],
                     hashtags: [...(post.value.hashtags || [])],
+                    series_id: post.value.series_id || null,
                     overrides: JSON.parse(JSON.stringify(post.value.platform_overrides || {})),
                     platforms: [...(post.value.platforms || [])],
                     scheduled_at: post.value.scheduled_at ? toLocalInput(post.value.scheduled_at) : '',
@@ -206,6 +213,7 @@ export default {
                     content_html: form.value.content_html,
                     tags: form.value.tags,
                     hashtags: form.value.hashtags,
+                    series_id: form.value.series_id,
                     platform_overrides: Object.fromEntries(Object.entries(form.value.overrides)
                         .filter(([id]) => form.value.platforms.includes(Number(id)))
                         .map(([id, o]) => [id, { ...(o.content?.trim() ? { content: o.content } : {}), ...(o.hashtags ? { hashtags: o.hashtags } : {}) }])

@@ -9,8 +9,32 @@ class Post extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        // the text is hashed so the same content can be found (and refused) quickly
+        static::saving(function (Post $post) {
+            if ($post->isDirty('content') || !$post->exists) {
+                $post->content_hash = self::hashContent((string) $post->content);
+            }
+        });
+    }
+
+    /** Same text in another case or spacing counts as the same content; an empty text (media only) has no hash */
+    public static function hashContent(string $content): ?string
+    {
+        $normal = trim(preg_replace('/\s+/u', ' ', mb_strtolower($content)));
+
+        return $normal === '' ? null : sha1($normal);
+    }
+
+    public function series()
+    {
+        return $this->belongsTo(PostSeries::class, 'series_id');
+    }
+
     protected $fillable = [
         'user_id',
+        'series_id',
         'content',
         'content_html',
         'tags',

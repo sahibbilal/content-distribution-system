@@ -92,7 +92,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
-import { CalendarDays, ChevronDown, Clapperboard, Images, LayoutDashboard, Link2, ListChecks, LogOut, Menu, PanelLeftClose, PenSquare, Settings, ShieldCheck, Sparkles } from 'lucide-vue-next';
+import { CalendarDays, ChevronDown, Layers, Clapperboard, Images, LayoutDashboard, Link2, ListChecks, LogOut, Menu, PanelLeftClose, PenSquare, Settings, ShieldCheck, Sparkles } from 'lucide-vue-next';
 import BrandLogo from './components/BrandLogo.vue';
 import FeedbackHost from './components/FeedbackHost.vue';
 
@@ -123,10 +123,11 @@ export default {
         const navItems = [
             { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
             {
-                label: 'Posts', icon: ListChecks, base: ['/posts', '/create-post'],
+                label: 'Posts', icon: ListChecks, base: ['/posts', '/create-post', '/series'],
                 children: [
                     { to: '/posts', label: 'All posts', icon: ListChecks },
                     { to: '/create-post', label: 'Create post', icon: PenSquare },
+                    { to: '/series', label: 'Series', icon: Layers },
                 ],
             },
             { to: '/ai-assistant', label: 'AI assistant', icon: Sparkles },
