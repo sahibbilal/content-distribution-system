@@ -14,6 +14,8 @@ class TwitterService implements PlatformServiceInterface
     private const MAX_LENGTH = 280;
     private const MAX_IMAGES = 4;
     private const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+    private const MAX_VIDEO_BYTES = 512 * 1024 * 1024;
+    private const CHUNK_BYTES = 4 * 1024 * 1024;
 
     /**
      * Post a tweet: text, optionally with up to 4 images (JPEG, PNG, WebP or GIF, 5MB each).
@@ -26,19 +28,34 @@ class TwitterService implements PlatformServiceInterface
 
         $content = trim($content);
         $images = array_slice($media, 0, self::MAX_IMAGES);
+        $video = null;
+
+        if (($images[0]['type'] ?? null) === 'video') {
+            if (count($media) > 1) {
+                throw new \Exception('X accepts one video per post, and it cannot be mixed with images.');
+            }
+            $video = $images[0];
+            $images = [];
+            $extension = strtolower(pathinfo($video['path'] ?? '', PATHINFO_EXTENSION));
+            if (!in_array($extension, ['mp4', 'mov'], true)) {
+                throw new \Exception("X only accepts MP4 or MOV videos (got .{$extension}).");
+            }
+        }
 
         foreach ($images as $item) {
             $extension = strtolower(pathinfo($item['path'] ?? '', PATHINFO_EXTENSION));
             if (($item['type'] ?? null) !== 'image' || !in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
-                throw new \Exception("X only accepts JPEG, PNG, WebP or GIF images with tweets (got .{$extension}). Videos are not supported yet.");
+                throw new \Exception("X only accepts JPEG, PNG, WebP or GIF images (or one MP4/MOV video) with tweets (got .{$extension}).");
             }
         }
 
-        if ($content === '' && !$images) {
-            throw new \Exception('A tweet needs some text or an image.');
+        if ($content === '' && !$images && !$video) {
+            throw new \Exception('A tweet needs some text, an image or a video.');
         }
-        if (mb_strlen($content) > self::MAX_LENGTH) {
-            throw new \Exception('Tweets are limited to ' . self::MAX_LENGTH . ' characters (got ' . mb_strlen($content) . ').');
+        // free accounts: 280 characters; Premium accounts may post longer
+        $limit = ($credentials['account_tier'] ?? 'free') === 'premium' ? \App\Support\PostText::X_PREMIUM_LIMIT : self::MAX_LENGTH;
+        if (mb_strlen($content) > $limit) {
+            throw new \Exception('Posts on your X account are limited to ' . $limit . ' characters (got ' . mb_strlen($content) . ').');
         }
 
         try {
@@ -50,6 +67,8 @@ class TwitterService implements PlatformServiceInterface
                     fn ($item) => $this->uploadImage($credentials['access_token'], $item['path']),
                     $images
                 )];
+            } elseif ($video) {
+                $body['media'] = ['media_ids' => [$this->uploadVideo($credentials['access_token'], $video['path'])]];
             }
 
             $response = Http::withToken($credentials['access_token'])
@@ -110,6 +129,81 @@ class TwitterService implements PlatformServiceInterface
                 $message .= ' (reconnect X so the media.write permission is granted)';
             }
             throw new \Exception("X media upload failed ({$response->status()}): {$message}");
+        }
+
+        return (string) $mediaId;
+    }
+
+    /**
+     * Upload a video in chunks (initialize, append, finalize, then wait while X processes it) and return its media id.
+     */
+    private function uploadVideo(string $accessToken, string $path): string
+    {
+        $disk = Storage::disk('public');
+
+        if (!$disk->exists($path)) {
+            throw new \Exception('Video file not found: ' . basename($path));
+        }
+        $size = $disk->size($path);
+        if ($size > self::MAX_VIDEO_BYTES) {
+            throw new \Exception('X videos must be 512MB or smaller (' . basename($path) . ').');
+        }
+
+        $fail = function ($response, string $step): \Exception {
+            $json = $response->json() ?? [];
+            $message = $json['detail'] ?? $json['title'] ?? $response->body();
+            if ($response->status() === 403) {
+                $message .= ' (reconnect X so the media.write permission is granted)';
+            }
+
+            return new \Exception("X video upload failed at {$step} ({$response->status()}): {$message}");
+        };
+
+        $init = Http::withToken($accessToken)->timeout(60)->post(self::API . '/media/upload/initialize', [
+            'media_type' => $disk->mimeType($path) ?: 'video/mp4',
+            'total_bytes' => $size,
+            'media_category' => 'tweet_video',
+        ]);
+        $mediaId = $init->json('data.id');
+        if (!$init->successful() || !$mediaId) {
+            throw $fail($init, 'start');
+        }
+
+        $stream = $disk->readStream($path);
+        try {
+            for ($segment = 0; !feof($stream); $segment++) {
+                $chunk = stream_get_contents($stream, self::CHUNK_BYTES);
+                if ($chunk === '' || $chunk === false) {
+                    break;
+                }
+                $append = Http::withToken($accessToken)->timeout(120)
+                    ->attach('media', $chunk, basename($path))
+                    ->post(self::API . "/media/upload/{$mediaId}/append", ['segment_index' => $segment]);
+                if (!$append->successful()) {
+                    throw $fail($append, "part {$segment}");
+                }
+            }
+        } finally {
+            fclose($stream);
+        }
+
+        $finalize = Http::withToken($accessToken)->timeout(60)->post(self::API . "/media/upload/{$mediaId}/finalize");
+        if (!$finalize->successful()) {
+            throw $fail($finalize, 'finish');
+        }
+
+        // X processes the video before it can be attached
+        $info = $finalize->json('data.processing_info');
+        for ($tries = 0; $info && in_array($info['state'] ?? '', ['pending', 'in_progress'], true) && $tries < 30; $tries++) {
+            sleep(max(1, min((int) ($info['check_after_secs'] ?? 3), 10)));
+            $status = Http::withToken($accessToken)->timeout(30)->get(self::API . '/media/upload', ['command' => 'STATUS', 'media_id' => $mediaId]);
+            $info = $status->json('data.processing_info');
+        }
+        if ($info && ($info['state'] ?? '') === 'failed') {
+            throw new \Exception('X could not process the video: ' . ($info['error']['message'] ?? 'unknown error'));
+        }
+        if ($info && in_array($info['state'] ?? '', ['pending', 'in_progress'], true)) {
+            throw new \Exception('X is still processing the video. Try publishing again in a few minutes.');
         }
 
         return (string) $mediaId;

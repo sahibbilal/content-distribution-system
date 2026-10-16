@@ -79,9 +79,10 @@ class LinkedInService implements PlatformServiceInterface
         // LinkedIn needs the image uploaded first; the post then references the uploaded asset
         $imagePath = $media[0]['path'] ?? null;
         if ($imagePath) {
-            $assetUrn = $this->uploadImage($accessToken, $personUrn, $imagePath);
+            $isVideo = ($media[0]['type'] ?? null) === 'video';
+            $assetUrn = $this->uploadImage($accessToken, $personUrn, $imagePath, $isVideo);
             $share = &$postData['specificContent']['com.linkedin.ugc.ShareContent'];
-            $share['shareMediaCategory'] = 'IMAGE';
+            $share['shareMediaCategory'] = $isVideo ? 'VIDEO' : 'IMAGE';
             $share['media'] = [[
                 'status' => 'READY',
                 'media' => $assetUrn,
@@ -174,13 +175,17 @@ class LinkedInService implements PlatformServiceInterface
     }
 
     /**
-     * Upload an image from the public disk to LinkedIn and return its asset URN
+     * Upload an image or a video from the public disk to LinkedIn and return its asset URN
      */
-    private function uploadImage(string $accessToken, string $personUrn, string $path): string
+    private function uploadImage(string $accessToken, string $personUrn, string $path, bool $video = false): string
     {
+        $noun = $video ? 'video' : 'image';
         $disk = Storage::disk('public'); // MediaController stores uploads on the public disk
         if (!$disk->exists($path)) {
-            throw new \Exception('LinkedIn image upload failed: file not found on server (' . $path . ').');
+            throw new \Exception("LinkedIn {$noun} upload failed: file not found on server ({$path}).");
+        }
+        if ($video && $disk->size($path) > 200 * 1024 * 1024) {
+            throw new \Exception('LinkedIn videos must be 200MB or smaller (' . basename($path) . ').');
         }
 
         $register = Http::withHeaders([
@@ -188,7 +193,7 @@ class LinkedInService implements PlatformServiceInterface
             'X-Restli-Protocol-Version' => '2.0.0',
         ])->timeout(30)->post('https://api.linkedin.com/v2/assets?action=registerUpload', [
             'registerUploadRequest' => [
-                'recipes' => ['urn:li:digitalmediaRecipe:feedshare-image'],
+                'recipes' => [$video ? 'urn:li:digitalmediaRecipe:feedshare-video' : 'urn:li:digitalmediaRecipe:feedshare-image'],
                 'owner' => $personUrn,
                 'serviceRelationships' => [[
                     'relationshipType' => 'OWNER',
@@ -204,17 +209,17 @@ class LinkedInService implements PlatformServiceInterface
 
         if (!$register->successful() || !$uploadUrl || !$assetUrn) {
             Log::error('LinkedIn registerUpload failed', ['status' => $register->status(), 'body' => $register->body()]);
-            throw new \Exception('LinkedIn image upload failed (register step): ' . $register->body());
+            throw new \Exception("LinkedIn {$noun} upload failed (register step): " . $register->body());
         }
 
         $upload = Http::withHeaders(['Authorization' => "Bearer {$accessToken}"])
-            ->timeout(60)
+            ->timeout($video ? 300 : 60)
             ->withBody($disk->get($path), $disk->mimeType($path) ?: 'application/octet-stream')
             ->put($uploadUrl);
 
         if (!$upload->successful()) {
-            Log::error('LinkedIn image upload failed', ['status' => $upload->status(), 'body' => $upload->body()]);
-            throw new \Exception('LinkedIn image upload failed (status ' . $upload->status() . ').');
+            Log::error("LinkedIn {$noun} upload failed", ['status' => $upload->status(), 'body' => $upload->body()]);
+            throw new \Exception("LinkedIn {$noun} upload failed (status " . $upload->status() . ').');
         }
 
         return $assetUrn;

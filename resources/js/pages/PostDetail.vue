@@ -1,5 +1,5 @@
 <template>
-    <div class="mx-auto max-w-3xl">
+    <div>
         <button class="btn btn-ghost -ml-3 mb-4 px-3! py-1.5!" @click="goBack">
             <ArrowLeft class="h-4 w-4" /> Back
         </button>
@@ -29,7 +29,16 @@
                 </section>
 
                 <section class="card p-5">
-                    <span class="label">Tags <span class="font-normal text-slate-400">(optional)</span></span>
+                    <span class="label">Hashtags <span class="font-normal text-slate-400">(optional)</span></span>
+                    <TagsInput v-model="form.hashtags" hashtag placeholder="#hashtag, press Enter or space to add" hint="Added to the end of the text on every selected channel." />
+                    <div class="mt-4 space-y-4">
+                        <ChannelTexts mode="text" :platforms="selectedPlatforms" :content="form.content" :hashtags="form.hashtags" v-model:overrides="form.overrides" />
+                        <ChannelTexts mode="hashtags" :platforms="selectedPlatforms" :content="form.content" :hashtags="form.hashtags" v-model:overrides="form.overrides" />
+                    </div>
+                </section>
+
+                <section v-if="selectedPlatforms.some(p => p.platform_type === 'website')" class="card p-5">
+                    <span class="label">Website tags <span class="font-normal text-slate-400">(optional)</span></span>
                     <TagsInput v-model="form.tags" />
                 </section>
 
@@ -69,7 +78,7 @@
 
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <button type="button" class="btn btn-danger-soft" @click="remove"><Trash2 class="h-4 w-4" /> Delete post</button>
-                    <button type="submit" class="btn btn-primary" :disabled="saving || form.platforms.length === 0 || !form.content.trim()">
+                    <button type="submit" class="btn btn-primary" :disabled="saving || form.platforms.length === 0 || !canSave || lengthProblems.length > 0">
                         <Save class="h-4 w-4" /> {{ saving ? 'Saving...' : 'Save changes' }}
                     </button>
                 </div>
@@ -117,11 +126,13 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2 } from 'lucide-vue-next';
+import ChannelTexts from '../components/ChannelTexts.vue';
 import PlatformIcon from '../components/PlatformIcon.vue';
 import RichTextEditor from '../components/RichTextEditor.vue';
 import TagsInput from '../components/TagsInput.vue';
 import { confirmDialog, toast } from '../feedback.js';
 import { platformLabel } from '../platforms.js';
+import { forPlatform, length as textLength, limitFor } from '../postText.js';
 
 // ISO (UTC) <-> the value a datetime-local input uses (local time)
 const toLocalInput = (iso) => {
@@ -131,19 +142,28 @@ const toLocalInput = (iso) => {
 
 export default {
     name: 'PostDetail',
-    components: { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2, PlatformIcon, RichTextEditor, TagsInput },
+    components: { ArrowLeft, Clock, ExternalLink, Film, Music, Save, Trash2, ChannelTexts, PlatformIcon, RichTextEditor, TagsInput },
     setup() {
         const route = useRoute();
         const router = useRouter();
         const post = ref(null);
         const platforms = ref([]);
-        const form = ref({ content: '', content_html: '', tags: [], platforms: [], scheduled_at: '' });
+        const form = ref({ content: '', content_html: '', tags: [], hashtags: [], overrides: {}, platforms: [], scheduled_at: '' });
         const loading = ref(true);
         const notFound = ref(false);
         const saving = ref(false);
         const error = ref('');
 
         const editable = computed(() => post.value?.status === 'scheduled');
+        const selectedPlatforms = computed(() => platforms.value.filter(p => form.value.platforms.includes(p.id)));
+        // text (shared or a channel's own) or an attached file is enough; an image alone is fine
+        const canSave = computed(() => form.value.content.trim() !== '' || (post.value?.media?.length || 0) > 0
+            || Object.values(form.value.overrides).some(o => (o.content || '').trim() !== ''));
+        const lengthProblems = computed(() => selectedPlatforms.value.flatMap((p) => {
+            const limit = limitFor(p);
+            const used = textLength(forPlatform(form.value.content, form.value.hashtags, form.value.overrides, p.id));
+            return limit && used > limit ? [`${platformLabel(p.platform_type)} is ${used - limit} characters over its ${limit} limit.`] : [];
+        }));
 
         const statuses = computed(() => Object.entries(post.value?.platform_statuses || {}).map(([id, s]) => ({
             id,
@@ -165,6 +185,8 @@ export default {
                     content_html: post.value.content_html
                         || post.value.content.split(/\n{2,}/).map(p => `<p>${escape(p).replace(/\n/g, '<br>')}</p>`).join(''),
                     tags: [...(post.value.tags || [])],
+                    hashtags: [...(post.value.hashtags || [])],
+                    overrides: JSON.parse(JSON.stringify(post.value.platform_overrides || {})),
                     platforms: [...(post.value.platforms || [])],
                     scheduled_at: post.value.scheduled_at ? toLocalInput(post.value.scheduled_at) : '',
                 };
@@ -183,6 +205,11 @@ export default {
                     content: form.value.content,
                     content_html: form.value.content_html,
                     tags: form.value.tags,
+                    hashtags: form.value.hashtags,
+                    platform_overrides: Object.fromEntries(Object.entries(form.value.overrides)
+                        .filter(([id]) => form.value.platforms.includes(Number(id)))
+                        .map(([id, o]) => [id, { ...(o.content?.trim() ? { content: o.content } : {}), ...(o.hashtags ? { hashtags: o.hashtags } : {}) }])
+                        .filter(([, o]) => Object.keys(o).length)),
                     platforms: form.value.platforms,
                     scheduled_at: new Date(form.value.scheduled_at).toISOString(),
                 });
@@ -224,7 +251,7 @@ export default {
 
         onMounted(load);
 
-        return { post, platforms, form, loading, notFound, saving, error, editable, statuses, save, remove, goBack, mediaUrl, formatDate, statusBadge, platformLabel };
+        return { post, platforms, form, loading, notFound, saving, error, editable, selectedPlatforms, canSave, lengthProblems, statuses, save, remove, goBack, mediaUrl, formatDate, statusBadge, platformLabel };
     },
 };
 </script>

@@ -7,6 +7,7 @@ use App\Models\Post;
 use App\Models\SiteContent;
 use App\Jobs\PublishPostJob;
 use App\Support\PlatformMediaRules;
+use App\Support\PostText;
 use App\Support\RichText;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -51,20 +52,21 @@ class PostController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'content' => 'required_without:content_html|nullable|string',
-            'content_html' => 'nullable|string|max:100000',
-            'tags' => 'nullable|array|max:20',
-            'tags.*' => 'string|max:50',
+        $request->validate(array_merge($this->textRules(), [
             'platforms' => 'required|array|min:1',
             'platforms.*' => 'exists:platforms,id',
             'scheduled_at' => 'nullable|date|after:now',
             'media' => 'nullable|array',
             'media.*' => 'exists:media,id',
             'thumbnail_media_id' => 'nullable|exists:media,id',
-        ]);
+        ]));
 
         [$content, $contentHtml] = $this->postText($request);
+        $hashtags = PostText::cleanHashtags($request->hashtags);
+        $overrides = PostText::cleanOverrides($request->platform_overrides, $request->platforms);
+        if ($problem = $this->textProblem($request->user()->id, $request->platforms, $content, $hashtags, $overrides, $request->media ?? [])) {
+            return $problem;
+        }
 
         if ($request->thumbnail_media_id) {
             $thumbnailError = $this->thumbnailError($request->user()->id, $request->thumbnail_media_id, $request->media ?? []);
@@ -89,11 +91,17 @@ class PostController extends Controller
             'content' => $content,
             'content_html' => $contentHtml,
             'tags' => $this->cleanTags($request->tags),
+            'hashtags' => $hashtags,
+            'platform_overrides' => $overrides,
             'platforms' => $request->platforms,
             'status' => $request->scheduled_at ? 'scheduled' : 'draft',
             'scheduled_at' => $request->scheduled_at,
             'thumbnail_media_id' => $request->thumbnail_media_id,
         ]);
+
+        if ($request->ai_generation_id) {
+            \App\Models\AiGeneration::where('user_id', $request->user()->id)->whereKey($request->ai_generation_id)->update(['post_id' => $post->id]);
+        }
 
         if ($request->media && is_array($request->media)) {
             \App\Models\Media::whereIn('id', $request->media)
@@ -178,14 +186,55 @@ class PostController extends Controller
         if ($request->filled('content_html')) {
             $html = RichText::sanitize($request->content_html);
             $plain = RichText::toPlainText($html);
-            if ($plain === '') {
-                throw ValidationException::withMessages(['content' => ['The post content is empty.']]);
-            }
 
-            return [$plain, $html];
+            return [$plain, $plain === '' ? null : $html];
         }
 
-        return [$request->content, null];
+        return [trim((string) $request->content), null];
+    }
+
+    /** Validation rules for the text part of a post (shared by create and edit) */
+    private function textRules(): array
+    {
+        return [
+            'content' => 'nullable|string',
+            'content_html' => 'nullable|string|max:100000',
+            'tags' => 'nullable|array|max:20',
+            'tags.*' => 'string|max:50',
+            'hashtags' => 'nullable|array|max:30',
+            'hashtags.*' => 'string|max:60',
+            'ai_generation_id' => 'nullable|integer',
+            'platform_overrides' => 'nullable|array',
+            'platform_overrides.*' => 'array',
+            'platform_overrides.*.content' => 'nullable|string|max:20000',
+            'platform_overrides.*.hashtags' => 'nullable|array|max:30',
+            'platform_overrides.*.hashtags.*' => 'string|max:60',
+        ];
+    }
+
+    /**
+     * A 422 response when the text can't be published: nothing to post, or a channel's text (with its hashtags)
+     * is longer than that channel allows (X: 280 characters including spaces and hashtags). Null when fine.
+     */
+    private function textProblem(int $userId, array $platformIds, string $content, array $hashtags, array $overrides, array $mediaIds)
+    {
+        $hasMedia = $mediaIds && \App\Models\Media::where('user_id', $userId)->whereIn('id', $mediaIds)->exists();
+        $hasOwnText = collect($overrides)->contains(fn ($o) => !empty($o['content']));
+        if ($content === '' && !$hasMedia && !$hasOwnText) {
+            return response()->json(['message' => 'Add some text or a file to post.', 'errors' => ['content' => ['Add some text or a file to post.']]], 422);
+        }
+
+        $messages = [];
+        foreach (Platform::whereIn('id', $platformIds)->where('user_id', $userId)->get() as $platform) {
+            $limit = PostText::limit($platform);
+            $length = mb_strlen(PostText::forPlatform($content, $hashtags, $overrides, $platform->id));
+            if ($limit && $length > $limit) {
+                $label = PlatformMediaRules::label($platform->platform_type);
+                $messages[] = "{$label}: the text is {$length} characters and the limit is {$limit} (spaces and hashtags count). Write a shorter version for {$label}.";
+            }
+        }
+
+        return $messages ? response()->json(['message' => implode("\n", $messages), 'errors' => ['content' => $messages]], 422) : null;
     }
 
     /** Trimmed, non-empty, unique (case-insensitive) tags in the order given. */
@@ -240,18 +289,19 @@ class PostController extends Controller
             return response()->json(['message' => 'Only scheduled posts can be edited.'], 422);
         }
 
-        $data = $request->validate([
-            'content' => 'required_without:content_html|nullable|string',
-            'content_html' => 'nullable|string|max:100000',
-            'tags' => 'nullable|array|max:20',
-            'tags.*' => 'string|max:50',
+        $data = $request->validate(array_merge($this->textRules(), [
             'platforms' => 'required|array|min:1',
             'platforms.*' => 'exists:platforms,id',
             'scheduled_at' => 'required|date|after:now',
-        ]);
+        ]));
 
         [$data['content'], $data['content_html']] = $this->postText($request);
         $data['tags'] = $this->cleanTags($data['tags'] ?? null);
+        $data['hashtags'] = PostText::cleanHashtags($request->hashtags);
+        $data['platform_overrides'] = PostText::cleanOverrides($request->platform_overrides, $data['platforms']);
+        if ($problem = $this->textProblem($request->user()->id, $data['platforms'], $data['content'], $data['hashtags'], $data['platform_overrides'], $post->media->pluck('id')->all())) {
+            return $problem;
+        }
 
         $problems = PlatformMediaRules::forPost($request->user()->id, $data['platforms'], $post->media->pluck('id')->all());
         if ($problems) {

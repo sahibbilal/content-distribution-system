@@ -14,6 +14,8 @@ class Post extends Model
         'content',
         'content_html',
         'tags',
+        'hashtags',
+        'platform_overrides',
         'platforms',
         'status',
         'scheduled_at',
@@ -24,6 +26,8 @@ class Post extends Model
 
     protected $casts = [
         'tags' => 'array',
+        'hashtags' => 'array',
+        'platform_overrides' => 'array',
         'platforms' => 'array',
         'platform_statuses' => 'array',
         'scheduled_at' => 'datetime',

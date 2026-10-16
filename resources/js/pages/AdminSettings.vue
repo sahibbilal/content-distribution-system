@@ -8,7 +8,7 @@
             <div class="card h-28 animate-pulse bg-slate-100"></div>
         </div>
 
-        <form v-else-if="form" class="max-w-3xl space-y-5" @submit.prevent="save">
+        <form v-else-if="form" class="space-y-5" @submit.prevent="save">
             <section class="card p-5">
                 <label class="flex cursor-pointer items-start justify-between gap-4">
                     <span>

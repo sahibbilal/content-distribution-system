@@ -46,13 +46,17 @@ class PlatformMediaRules
             'label' => 'LinkedIn',
             'media' => 'optional',
             'max_total' => 1,
-            'kinds' => ['image' => []],
+            'kinds' => ['image' => [], 'video' => ['extensions' => ['mp4'], 'max_bytes' => 200 * 1024 * 1024]],
         ],
         'twitter' => [
             'label' => 'X',
             'media' => 'optional',
             'max_total' => 4,
-            'kinds' => ['image' => ['extensions' => ['jpg', 'png', 'webp', 'gif'], 'max_bytes' => 5 * 1024 * 1024]],
+            'single_kind' => true,
+            'kinds' => [
+                'image' => ['extensions' => ['jpg', 'png', 'webp', 'gif'], 'max_bytes' => 5 * 1024 * 1024],
+                'video' => ['extensions' => ['mp4', 'mov'], 'max_bytes' => 512 * 1024 * 1024, 'max_files' => 1],
+            ],
         ],
         'website' => [
             'label' => 'Website',
@@ -61,6 +65,12 @@ class PlatformMediaRules
             'kinds' => ['image' => [], 'video' => [], 'audio' => []],
         ],
     ];
+
+    /** Display name of a platform type, e.g. X for twitter */
+    public static function label(string $platformType): string
+    {
+        return self::RULES[$platformType]['label'] ?? ucfirst($platformType);
+    }
 
     private const NOUNS = ['image' => 'image', 'video' => 'video', 'audio' => 'audio file'];
 

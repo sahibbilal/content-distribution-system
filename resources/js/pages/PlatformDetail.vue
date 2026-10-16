@@ -1,5 +1,5 @@
 <template>
-    <div class="mx-auto max-w-3xl">
+    <div>
         <button @click="goBack" class="btn btn-ghost -ml-3 mb-4 px-3! py-1.5!">
             <ArrowLeft class="h-4 w-4" /> Back to platforms
         </button>
@@ -150,6 +150,20 @@
                     <h2 class="card-title">Connect with X</h2>
                     <p class="mt-1 text-sm text-slate-500">Authorize your X account to publish tweets (up to 280 characters, with up to 4 images).</p>
                 </div>
+                <fieldset>
+                    <legend class="label">What kind of X account is it?</legend>
+                    <div class="grid gap-2 sm:grid-cols-2">
+                        <label v-for="t in xTiers" :key="t.value" class="cursor-pointer">
+                            <input v-model="xTier" type="radio" name="x-tier" :value="t.value" class="peer sr-only" @change="saveXTier" />
+                            <span class="block rounded-lg p-3 ring-1 ring-inset ring-slate-300 transition peer-checked:bg-brand-50 peer-checked:ring-2 peer-checked:ring-brand-600">
+                                <span class="block text-sm font-medium text-slate-900">{{ t.label }}</span>
+                                <span class="block text-xs text-slate-600">{{ t.text }}</span>
+                            </span>
+                        </label>
+                    </div>
+                    <p class="hint">Free accounts can post 280 characters, spaces and hashtags included. Pick Premium only if your X account has Premium (long posts).
+                        <span v-if="isConnected">Changing it here updates your connected account.</span></p>
+                </fieldset>
                 <button @click="loginWithTwitter" class="btn w-full bg-slate-900 text-white hover:bg-black" :disabled="linkingTwitter">
                     <PlatformIcon type="twitter" :size="18" class="rounded-sm bg-white p-px" />
                     <span v-if="!linkingTwitter">Log in with X</span>
@@ -259,6 +273,11 @@ export default {
         const credentials = ref({});
         const isConnected = ref(false);
         const platformId = ref(null);
+        const xTier = ref('free');
+        const xTiers = [
+            { value: 'free', label: 'Free', text: 'Posts up to 280 characters.' },
+            { value: 'premium', label: 'Premium', text: 'Can post longer than 280 characters.' },
+        ];
 
         const platformInfo = computed(() => {
             const platforms = {
@@ -296,6 +315,7 @@ export default {
                 if (platform) {
                     isConnected.value = platform.is_active && platform.credentials_valid;
                     platformId.value = platform.id;
+                    if (platform.account_tier) xTier.value = platform.account_tier;
                 }
             } catch (error) {
                 console.error('Error loading platform:', error);
@@ -346,6 +366,17 @@ export default {
             }
         };
 
+        // once connected, changing the account type is saved right away
+        const saveXTier = async () => {
+            if (!isConnected.value) return;
+            try {
+                await axios.patch('/platforms/twitter/settings', { account_tier: xTier.value });
+                success.value = 'X account type saved.';
+            } catch (err) {
+                error.value = err.response?.data?.message || 'Could not save the account type.';
+            }
+        };
+
         const loginWithTwitter = async () => {
             if (platformType !== 'twitter') return;
 
@@ -354,7 +385,7 @@ export default {
             success.value = '';
 
             try {
-                const response = await axios.get('/platforms/twitter/oauth/initiate');
+                const response = await axios.get('/platforms/twitter/oauth/initiate', { params: { account_tier: xTier.value } });
                 if (response.data.auth_url) {
                     window.location.href = response.data.auth_url;
                 } else {
@@ -606,6 +637,9 @@ export default {
         });
 
         return {
+            xTier,
+            xTiers,
+            saveXTier,
             platformType,
             platformInfo,
             loading,

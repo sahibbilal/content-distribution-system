@@ -1,5 +1,5 @@
 <template>
-    <div class="mx-auto max-w-2xl">
+    <div>
         <PageHeader title="Profile" description="Your name, photo and password." />
 
         <div class="space-y-6">

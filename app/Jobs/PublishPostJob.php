@@ -6,6 +6,7 @@ use App\Models\Post;
 use App\Models\Platform;
 use App\Models\SiteContent;
 use App\Services\PlatformServiceFactory;
+use App\Support\PostText;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -51,8 +52,10 @@ class PublishPostJob implements ShouldQueue
 
             try {
                 $service = PlatformServiceFactory::create($platform->platform_type);
+                // the website keeps the plain post (it has its own tags); social channels get their version + hashtags
+                $text = $platform->platform_type === 'website' ? $this->post->content : PostText::forPost($this->post, $platformId);
                 $result = $service->publish(
-                    $this->post->content,
+                    $text,
                     $platform->credentials,
                     $media,
                     $this->post->content_html, // html and tags are only used by WebsiteService; other services ignore extra args

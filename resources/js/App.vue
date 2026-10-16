@@ -19,11 +19,28 @@
                 </div>
 
                 <nav class="flex-1 space-y-1 overflow-y-auto p-3">
-                    <router-link v-for="item in navItems" :key="item.to" :to="item.to" class="nav-link"
-                        :class="{ 'md:justify-center md:px-0': sidebarCollapsed }" :title="item.label" @click="closeSidebarMobile">
-                        <component :is="item.icon" class="h-5 w-5 shrink-0" />
-                        <span :class="{ 'md:hidden': sidebarCollapsed }">{{ item.label }}</span>
-                    </router-link>
+                    <template v-for="item in navItems" :key="item.label">
+                        <!-- A group that opens and closes (Posts: all posts + create post) -->
+                        <div v-if="item.children">
+                            <button type="button" class="nav-link w-full" :class="{ 'md:justify-center md:px-0': sidebarCollapsed, 'bg-brand-50! text-brand-700!': groupActive(item) && !groupOpen(item) }"
+                                :title="item.label" :aria-expanded="groupOpen(item)" @click="toggleGroup(item)">
+                                <component :is="item.icon" class="h-5 w-5 shrink-0" />
+                                <span class="flex-1 text-left" :class="{ 'md:hidden': sidebarCollapsed }">{{ item.label }}</span>
+                                <ChevronDown class="h-4 w-4 shrink-0 transition-transform" :class="[groupOpen(item) ? 'rotate-180' : '', { 'md:hidden': sidebarCollapsed }]" />
+                            </button>
+                            <div v-show="groupOpen(item) && !sidebarCollapsed" class="mt-1 space-y-1 border-l border-slate-200 pl-3 ml-5">
+                                <router-link v-for="child in item.children" :key="child.to" :to="child.to" class="nav-link py-2!" exact-active-class="router-link-active" @click="closeSidebarMobile">
+                                    <component :is="child.icon" class="h-4 w-4 shrink-0" />
+                                    <span>{{ child.label }}</span>
+                                </router-link>
+                            </div>
+                        </div>
+                        <router-link v-else :to="item.to" class="nav-link"
+                            :class="{ 'md:justify-center md:px-0': sidebarCollapsed }" :title="item.label" @click="closeSidebarMobile">
+                            <component :is="item.icon" class="h-5 w-5 shrink-0" />
+                            <span :class="{ 'md:hidden': sidebarCollapsed }">{{ item.label }}</span>
+                        </router-link>
+                    </template>
                     <router-link v-if="isAdmin" to="/admin" class="nav-link" :class="{ 'md:justify-center md:px-0': sidebarCollapsed }"
                         title="Admin" @click="closeSidebarMobile">
                         <ShieldCheck class="h-5 w-5 shrink-0" />
@@ -59,7 +76,7 @@
                     </button>
                     <BrandLogo :size="34" />
                 </header>
-                <main class="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+                <main class="w-full px-4 py-6 lg:py-8">
                     <router-view />
                 </main>
             </div>
@@ -75,12 +92,12 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
-import { CalendarDays, Images, LayoutDashboard, Link2, ListChecks, LogOut, Menu, PanelLeftClose, PenSquare, Settings, ShieldCheck } from 'lucide-vue-next';
+import { CalendarDays, ChevronDown, Clapperboard, Images, LayoutDashboard, Link2, ListChecks, LogOut, Menu, PanelLeftClose, PenSquare, Settings, ShieldCheck, Sparkles } from 'lucide-vue-next';
 import BrandLogo from './components/BrandLogo.vue';
 import FeedbackHost from './components/FeedbackHost.vue';
 
 export default {
-    components: { BrandLogo, FeedbackHost, ShieldCheck, LogOut, Menu, PanelLeftClose },
+    components: { BrandLogo, FeedbackHost, ChevronDown, ShieldCheck, LogOut, Menu, PanelLeftClose },
     name: 'App',
     setup() {
         const router = useRouter();
@@ -105,13 +122,32 @@ export default {
         const initial = computed(() => (user.value?.name || user.value?.email || '?').charAt(0).toUpperCase());
         const navItems = [
             { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-            { to: '/create-post', label: 'Create Post', icon: PenSquare },
-            { to: '/posts', label: 'Posts', icon: ListChecks },
+            {
+                label: 'Posts', icon: ListChecks, base: ['/posts', '/create-post'],
+                children: [
+                    { to: '/posts', label: 'All posts', icon: ListChecks },
+                    { to: '/create-post', label: 'Create post', icon: PenSquare },
+                ],
+            },
+            { to: '/ai-assistant', label: 'AI assistant', icon: Sparkles },
+            { to: '/episodes', label: 'Video episodes', icon: Clapperboard },
             { to: '/calendar', label: 'Calendar', icon: CalendarDays },
             { to: '/media', label: 'Media', icon: Images },
             { to: '/platforms', label: 'Platforms', icon: Link2 },
             { to: '/settings', label: 'Settings', icon: Settings },
         ];
+        // Groups open by hand, and open by themselves when you are on one of their pages
+        const opened = ref({});
+        const groupActive = (item) => item.base.some(b => router.currentRoute.value.path === b || router.currentRoute.value.path.startsWith(b + '/'));
+        const groupOpen = (item) => opened.value[item.label] ?? true; // open by default, the arrow hides it
+        const toggleGroup = (item) => {
+            if (sidebarCollapsed.value && window.innerWidth >= 768) {
+                // icon-only sidebar: open the list page instead
+                router.push(item.children[0].to);
+                return;
+            }
+            opened.value = { ...opened.value, [item.label]: !groupOpen(item) };
+        };
         router.afterEach(() => {
             isAuthenticated.value = !!localStorage.getItem('token');
             isAdmin.value = readIsAdmin();
@@ -185,6 +221,9 @@ export default {
             user,
             initial,
             navItems,
+            groupActive,
+            groupOpen,
+            toggleGroup,
             sidebarCollapsed,
             toggleSidebar,
             closeSidebarMobile,

@@ -1,22 +1,33 @@
 <template>
     <div>
-        <PageHeader title="Create post" description="Write once, then choose where it goes." />
+        <PageHeader title="Create post" description="Write it yourself or ask the AI, then choose where it goes." />
 
         <form @submit.prevent="handleSubmit" class="grid gap-6 lg:grid-cols-3">
             <!-- Composer -->
             <div class="space-y-6 lg:col-span-2">
+                <div class="inline-flex rounded-lg bg-slate-100 p-1" role="tablist" aria-label="How to write the post">
+                    <button type="button" role="tab" :aria-selected="mode === 'write'" class="flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition"
+                        :class="mode === 'write' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'" @click="mode = 'write'">
+                        <PenLine class="h-4 w-4" /> Write it myself
+                    </button>
+                    <button type="button" role="tab" :aria-selected="mode === 'ai'" class="flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition"
+                        :class="mode === 'ai' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'" @click="mode = 'ai'">
+                        <Sparkles class="h-4 w-4" /> Ask AI
+                    </button>
+                </div>
+
+                <AskAiPanel v-show="mode === 'ai'" :platforms="form.platforms" :media="imageMediaIds" :has-images="imageMediaIds.length > 0" @draft="applyDraft" @project="useProjectChannels" />
+
                 <section class="card p-5">
                     <div class="mb-1.5 flex items-center justify-between">
-                        <span class="label mb-0">Content</span>
+                        <span class="label mb-0">Content <span class="font-normal text-slate-400">(optional when you add an image or video)</span></span>
                         <span class="text-xs text-slate-400">{{ form.content.length }} characters</span>
                     </div>
                     <RichTextEditor v-model="form.content_html" v-model:text="form.content" placeholder="What would you like to post?" />
                     <p class="hint">Platforms publish plain text: bold and italic are kept in your draft, but lists become bullets and links show their address.</p>
-                </section>
-
-                <section class="card p-5">
-                    <span class="label">Tags <span class="font-normal text-slate-400">(optional)</span></span>
-                    <TagsInput v-model="form.tags" />
+                    <div class="mt-4">
+                        <ChannelTexts mode="text" :platforms="selectedPlatforms" :content="form.content" :hashtags="form.hashtags" v-model:overrides="form.overrides" />
+                    </div>
                 </section>
 
                 <section class="card p-5">
@@ -136,6 +147,19 @@
                         </template>
                     </div>
                 </section>
+
+                <section class="card p-5">
+                    <span class="label">Hashtags <span class="font-normal text-slate-400">(optional)</span></span>
+                    <TagsInput v-model="form.hashtags" hashtag placeholder="#hashtag, press Enter or space to add" hint="Added to the end of the text on every selected channel. Use the options below for a channel that needs different ones." />
+                    <div class="mt-4">
+                        <ChannelTexts mode="hashtags" :platforms="selectedPlatforms" :content="form.content" :hashtags="form.hashtags" v-model:overrides="form.overrides" />
+                    </div>
+                </section>
+
+                <section class="card p-5">
+                    <span class="label">Tags for your website <span class="font-normal text-slate-400">(optional)</span></span>
+                    <TagsInput v-model="form.tags" :hint="websiteSelected ? 'Press Enter or comma to add a tag. Sent to your Website as the post tags. Different from hashtags, which go to social channels.' : 'Press Enter or comma to add a tag. Only sent when the Website platform is selected. Different from hashtags, which go to social channels.'" />
+                </section>
             </div>
 
             <!-- Publish settings -->
@@ -182,12 +206,14 @@
                     <input v-if="form.schedule" v-model="form.scheduled_at" type="datetime-local" class="input mt-4" required />
                 </section>
 
-                <button type="submit" class="btn btn-primary w-full py-3" :disabled="loading || uploading || hasIssues || form.platforms.length === 0 || !form.content.trim()">
+                <button type="submit" class="btn btn-primary w-full py-3" :disabled="loading || uploading || hasIssues || form.platforms.length === 0 || !canPost || lengthProblems.length > 0">
                     <Send class="h-4 w-4" />
                     {{ loading ? 'Publishing...' : (form.schedule ? 'Schedule post' : 'Publish now') }}
                 </button>
                 <p v-if="uploading" class="-mt-3 text-center text-xs text-slate-500">Wait for the uploads to finish.</p>
                 <p v-else-if="hasIssues" class="-mt-3 text-center text-xs text-red-700">Fix the file problems above, or deselect that platform.</p>
+                <p v-else-if="lengthProblems.length" class="-mt-3 text-center text-xs text-red-700">{{ lengthProblems.join(" ") }}</p>
+                <p v-else-if="form.platforms.length && !canPost" class="-mt-3 text-center text-xs text-slate-500">Write some text or add an image or video.</p>
                 <p v-else-if="form.platforms.length === 0 && !loadingPlatforms && platforms.length" class="-mt-3 text-center text-xs text-slate-500">Select at least one platform.</p>
 
                 <div v-if="error" class="alert alert-error">{{ error }}</div>
@@ -213,29 +239,36 @@
 import { ref, reactive, markRaw, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
-import { CalendarClock, Check, CircleAlert, File as FileIcon, Film, Image as ImageIcon, Images, Music, Send, UploadCloud, X } from 'lucide-vue-next';
+import { CalendarClock, Check, CircleAlert, File as FileIcon, Film, Image as ImageIcon, Images, Music, PenLine, Send, Sparkles, UploadCloud, X } from 'lucide-vue-next';
+import AskAiPanel from '../components/AskAiPanel.vue';
+import ChannelTexts from '../components/ChannelTexts.vue';
 import PageHeader from '../components/PageHeader.vue';
 import PlatformIcon from '../components/PlatformIcon.vue';
 import RichTextEditor from '../components/RichTextEditor.vue';
 import TagsInput from '../components/TagsInput.vue';
 import { platformLabel } from '../platforms.js';
+import { cleanHashtags, forPlatform, length as textLength, limitFor } from '../postText.js';
 
 export default {
     name: 'CreatePost',
-    components: { CalendarClock, Check, CircleAlert, FileIcon, Film, ImageIcon, Images, Music, Send, UploadCloud, X, PageHeader, PlatformIcon, RichTextEditor, TagsInput },
+    components: { CalendarClock, Check, CircleAlert, FileIcon, Film, ImageIcon, Images, Music, PenLine, Send, Sparkles, UploadCloud, X, AskAiPanel, ChannelTexts, PageHeader, PlatformIcon, RichTextEditor, TagsInput },
     setup() {
         const router = useRouter();
         const route = useRoute();
         const form = ref({
             content: '', // plain text, filled in by the editor
             content_html: '',
-            tags: [],
+            tags: [], // website tags
+            ai_generation_id: null, // the AI draft this post came from (kept in the project's memory)
+            hashtags: [], // for the social channels
+            overrides: {}, // {platformId: {content?, hashtags?}}: a channel's own text or hashtags
             platforms: [],
             media: [],
             thumbnail_media_id: null,
             schedule: false,
             scheduled_at: '',
         });
+        const mode = ref('write'); // 'write' | 'ai'
         const platforms = ref([]);
         const loading = ref(false);
         const loadingPlatforms = ref(true);
@@ -279,6 +312,20 @@ export default {
             return (active === -1 ? uploads.value.findIndex(u => u.status === 'queued') : active) + 1;
         });
         const hasIssues = computed(() => Object.keys(issues.value).length > 0);
+
+        const selectedPlatforms = computed(() => platforms.value.filter(p => form.value.platforms.includes(p.id)));
+        const websiteSelected = computed(() => selectedPlatforms.value.some(p => p.platform_type === 'website'));
+        const imageMediaIds = computed(() => uploads.value.filter(u => u.kind === 'image' && u.status === 'done' && u.media).map(u => u.media.id));
+        // a post needs text (the shared one or a channel's own) or a file; an image alone is fine, e.g. on Instagram
+        const canPost = computed(() => form.value.content.trim() !== ''
+            || form.value.media.length > 0
+            || Object.values(form.value.overrides).some(o => (o.content || '').trim() !== ''));
+        // channels whose final text (with hashtags) is longer than they allow, e.g. X over 280
+        const lengthProblems = computed(() => selectedPlatforms.value.flatMap((p) => {
+            const limit = limitFor(p);
+            const used = textLength(forPlatform(form.value.content, form.value.hashtags, form.value.overrides, p.id));
+            return limit && used > limit ? [`${platformLabel(p.platform_type)} is ${used - limit} characters over its ${limit} limit.`] : [];
+        }));
         let queueRunning = false;
         let nextKey = 1;
 
@@ -495,6 +542,13 @@ export default {
                     content: form.value.content,
                     content_html: form.value.content_html,
                     tags: form.value.tags,
+                    hashtags: form.value.hashtags,
+                    ...(form.value.ai_generation_id ? { ai_generation_id: form.value.ai_generation_id } : {}),
+                    // only the channels that are selected, and only an own text that is not empty
+                    platform_overrides: Object.fromEntries(Object.entries(form.value.overrides)
+                        .filter(([id]) => form.value.platforms.includes(Number(id)))
+                        .map(([id, o]) => [id, { ...(o.content?.trim() ? { content: o.content } : {}), ...(o.hashtags ? { hashtags: o.hashtags } : {}) }])
+                        .filter(([, o]) => Object.keys(o).length)),
                     platforms: form.value.platforms,
                     media: form.value.media,
                 };
@@ -561,8 +615,42 @@ export default {
                 form.value.content_html = response.data.content_html
                     || response.data.content.split(/\n{2,}/).map(p => `<p>${escape(p).replace(/\n/g, '<br>')}</p>`).join('');
                 form.value.tags = response.data.tags || [];
+                form.value.hashtags = response.data.hashtags || [];
+                form.value.overrides = response.data.platform_overrides || {};
             } catch (err) {
                 error.value = 'Could not load the post to copy.';
+            }
+        };
+
+        // The AI's draft fills the form: long text for everyone, a separate short text (and hashtags) for X, the image if made.
+        // The user can change all of it, nothing is posted from here.
+        // a project's default channels are used when none is chosen yet
+        const useProjectChannels = (project) => {
+            if (form.value.platforms.length) return;
+            form.value.platforms = platforms.value.filter(p => (project.platform_ids || []).includes(p.id)).map(p => p.id);
+        };
+
+        const applyDraft = (draft) => {
+            form.value.ai_generation_id = draft.generation_id || null;
+            const escape = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const long = draft.versions?.long || '';
+            form.value.content_html = long.split(/\n{2,}/).map(par => `<p>${escape(par).replace(/\n/g, '<br>')}</p>`).join('');
+            form.value.hashtags = cleanHashtags(draft.hashtags);
+
+            const overrides = {};
+            if (draft.versions?.short) {
+                for (const p of platforms.value.filter(x => x.platform_type === 'twitter' && form.value.platforms.includes(x.id))) {
+                    overrides[p.id] = { content: draft.versions.short, hashtags: cleanHashtags(draft.hashtags_short) };
+                }
+            }
+            form.value.overrides = overrides;
+
+            if (draft.image && !form.value.media.includes(draft.image.id)) {
+                uploads.value.push(reactive({
+                    key: nextKey++, name: draft.image.filename || 'AI image', size: draft.image.size || 0, kind: 'image',
+                    preview: draft.image.url, status: 'done', progress: 100, error: '', media: draft.image,
+                }));
+                form.value.media.push(draft.image.id);
             }
         };
 
@@ -573,6 +661,14 @@ export default {
 
         return {
             platformLabel,
+            mode,
+            selectedPlatforms,
+            websiteSelected,
+            imageMediaIds,
+            canPost,
+            lengthProblems,
+            applyDraft,
+            useProjectChannels,
             form,
             platforms,
             uploads,
